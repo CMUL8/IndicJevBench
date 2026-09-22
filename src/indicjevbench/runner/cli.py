@@ -122,17 +122,21 @@ def run_evaluation(
 
         score = result["score"]
         overall = result["metrics"].get("all", {})
-        print(
-            f"[{run_id}] {task_name}: IndicJevScore={score['indicjev_score']} "
-            f"acc={overall.get('accuracy', float('nan')):.3f} "
-            f"ece={overall.get('ece', float('nan')):.3f} "
-            f"p50={result['latency']['p50_ms']}ms "
-            f"({result['n_answered']}/{result['n_tasks']} answered)"
+        logger.info(
+            "[%s] %s: IndicJevScore=%s acc=%.3f ece=%.3f p50=%sms (%d/%d answered)",
+            run_id,
+            task_name,
+            score["indicjev_score"],
+            overall.get("accuracy", float("nan")),
+            overall.get("ece", float("nan")),
+            result["latency"]["p50_ms"],
+            result["n_answered"],
+            result["n_tasks"],
         )
 
     out_path = Path(output) if output is not None else paths.results_file(run_id)
     atomic_write_text(out_path, json.dumps(all_results, indent=2, ensure_ascii=False))
-    print(f"Results written to {out_path}")
+    logger.info("Results written to %s", out_path)
     return out_path
 
 
