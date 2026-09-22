@@ -23,7 +23,7 @@ Every benchmark item is a `(state, question)` pair. The question is one of three
 
 | Type | What it asks | Output |
 |------|-------------|--------|
-| `choice` | Pick one option from 2–64 | Probability per option |
+| `choice` | Pick one option from a fixed list (2–77 options in v1) | Probability per option |
 | `score` | Rate on an ordered scale (e.g. urgency 1–5) | Distribution + expected level |
 | `noul` | Yes/no (escalate? in-scope?) | P(true) |
 
@@ -35,7 +35,7 @@ A single customer message can have multiple questions — intent + urgency + esc
 
 | Source | License | Tasks | Languages |
 |--------|---------|-------|-----------|
-| MASSIVE test split | CC BY 4.0 | Intent classification (60 intents) | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym |
+| MASSIVE test split | CC BY 4.0 | Intent classification (60 intents) | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym, en-Latn |
 | Banking77 | CC BY 4.0 | Fintech intent (77 intents) | Translated to Indic via NLLB-200 |
 | COMI-LINGUA | CC BY 4.0 | Language identification, code-mix detection | hi-Latn (Hinglish) |
 | Synthetic (cmul8) | CC BY 4.0 | UPI urgency/escalation, e-commerce intent, agent routing | hi-Latn, hi-Deva |

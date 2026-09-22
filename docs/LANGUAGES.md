@@ -3,7 +3,7 @@
 | Code | Script | Name | Example Sources | Notes |
 |------|--------|------|-----------------|-------|
 | `hi-Deva` | Devanagari | Hindi | MASSIVE, synthetic (UPI/e-commerce) | Primary Indic language; largest synthetic coverage |
-| `hi-Latn` | Latin | Hinglish (code-mixed) | COMI-LINGUA, synthetic (UPI/routing/e-commerce) | Roman script Hindi; only synthetic generation covers this |
+| `hi-Latn` | Latin | Hinglish (code-mixed) | COMI-LINGUA, synthetic (UPI/routing/e-commerce) | Roman script Hindi; NLLB cannot produce it, so enterprise/register coverage beyond LID is synthetic-only |
 | `bn-Beng` | Bengali | Bengali | MASSIVE | MASSIVE test split only in v1 |
 | `ta-Taml` | Tamil | Tamil | MASSIVE | MASSIVE test split only in v1 |
 | `te-Telu` | Telugu | Telugu | MASSIVE | MASSIVE test split only in v1 |

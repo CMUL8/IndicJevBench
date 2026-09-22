@@ -138,3 +138,7 @@ v2 planned post-release: replace all Bitext-derived tasks with synthetic CC BY 4
 - Banking77 domain is UK retail banking, not India-specific.
 - Synthetic Hinglish may not match real customer-support register.
 - NLLB translation quality is approximate; not human-verified.
+
+## Known Issues
+
+- **`hinglish_lid` option serialization artifact.** In `datasets/v1/hinglish_lid.jsonl`, `choice` questions carry their `options` as a *stringified Python repr* of the v1 packager's token-list structure (e.g. the string `"[{'key': ..., 'value': 'hi', 'index': 0}, ...]"`) instead of a plain JSON array of option strings. This is a serialization artifact of the v1 packager (`scripts/package_datasets.py`), present in the original frozen release; it does not affect evaluation semantics (models and adapters receive whatever option strings the packager emitted, and all published results were computed against these files). The data is **frozen for reproducibility** and is intentionally left bit-for-bit unchanged. A fix (re-emitting clean option arrays) is planned for the v2 dataset packager, alongside re-verified baselines.
