@@ -56,7 +56,7 @@ def build_adapter(args: argparse.Namespace) -> BenchAdapter:
     if args.adapter == "qwen3":
         from indicjevbench.adapters.qwen3_logprob import Qwen3LogprobAdapter
 
-        return Qwen3LogprobAdapter(device=args.device)
+        return Qwen3LogprobAdapter(model_id=args.model, device=args.device)
     if args.adapter == "api":
         from indicjevbench.adapters.api_llm import APILLMAdapter
 
@@ -199,7 +199,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--endpoint", default="http://localhost:8000")
     run_p.add_argument("--base-url", default=None, help="API base URL override (e.g. https://openrouter.ai/api/v1)")
     run_p.add_argument("--checkpoint", default="checkpoints/best")
-    run_p.add_argument("--model", default="my-model")
+    run_p.add_argument("--model", default="my-model", help="Model label for results; also used as HF model id for --adapter qwen3/semif")
     run_p.add_argument("--device", default="cuda")
     run_p.add_argument("--budget", type=float, default=20.0)
     run_p.add_argument("--max-examples", type=int, default=None)

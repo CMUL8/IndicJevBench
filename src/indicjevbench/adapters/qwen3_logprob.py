@@ -53,7 +53,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
 
     def __init__(
         self,
-        model_id: str = "Qwen/Qwen3-4B-Instruct",
+        model_id: str = "Qwen/Qwen3-4B",
         device: str = "cuda",
         local_files_only: bool = False,
     ) -> None:
