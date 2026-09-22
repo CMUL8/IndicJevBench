@@ -21,9 +21,9 @@ First open-source release.
 - `BenchmarkRunner` with per-task fault isolation and atomic raw-log JSONL
   output; `run_evaluation`/`build_adapter`/`close_adapter` CLI plumbing.
 - `indicjevbench` console script (`indicjevbench run --adapter ...`).
-- Full documentation set: README, CHANGELOG, CONTRIBUTING, docs/ARCHITECTURE.md,
-  docs/ADAPTERS.md, docs/LANGUAGES.md, DATASHEET.md (with Known Issues),
-  BENCHMARK_EXPLAINED.md, IMPLEMENTATION.md.
+- Full documentation set, all under `docs/` (benchmark design, datasheet with
+  Known Issues, implementation notes, languages, architecture, adapter guide)
+  plus README, CHANGELOG, and CONTRIBUTING at the repository root.
 - Test suite (129 tests) covering schemas, dataset loading, runner, metrics,
   scoring, adapters (mock-transport, no network/GPU), and CLI dispatch.
 
@@ -46,7 +46,7 @@ First open-source release.
   runner result-dict shape, CLI flags, and the IndicJevScore weights
   0.35/0.25/0.20/0.20 are unchanged from the pre-refactor harness.
 - `datasets/v1/*.jsonl` content is frozen (bit-for-bit) for reproducibility;
-  see DATASHEET.md → Known Issues for the `hinglish_lid` options serialization
+  see docs/DATASHEET.md → Known Issues for the `hinglish_lid` options serialization
   artifact (documented, not fixed; fix planned in v2).
 
 [1.0.0]: https://github.com/cmul8/IndicJevBench/releases/tag/v1.0.0
