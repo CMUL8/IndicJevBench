@@ -126,7 +126,7 @@ Notes:
 
 ## Running the Benchmark
 
-The benchmark harness is available at [CMUL8/IndicJevBench](https://github.com/CMUL8/IndicJevBench). See the README there for installation and usage.
+The benchmark harness and full code are coming soon.
 
 ---
 
