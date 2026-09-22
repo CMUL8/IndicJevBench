@@ -60,7 +60,7 @@ def build_adapter(args: argparse.Namespace) -> BenchAdapter:
     if args.adapter == "api":
         from indicjevbench.adapters.api_llm import APILLMAdapter
 
-        return APILLMAdapter(model=args.model, max_budget_usd=args.budget)
+        return APILLMAdapter(model=args.model, base_url=args.base_url, max_budget_usd=args.budget)
     if args.adapter == "semif":
         from indicjevbench.adapters.semif import SemIfAdapter
 
@@ -197,6 +197,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--adapter", required=True, choices=["http", "local", "qwen3", "api", "semif"]
     )
     run_p.add_argument("--endpoint", default="http://localhost:8000")
+    run_p.add_argument("--base-url", default=None, help="API base URL override (e.g. https://openrouter.ai/api/v1)")
     run_p.add_argument("--checkpoint", default="checkpoints/best")
     run_p.add_argument("--model", default="my-model")
     run_p.add_argument("--device", default="cuda")
