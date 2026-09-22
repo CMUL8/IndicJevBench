@@ -113,4 +113,4 @@ data/final/test.jsonl                 (upstream pipeline, outside this repo)
   `get_api_key` checks only presence.
 - **Frozen data.** `datasets/v1/*.jsonl` is content-frozen for
   reproducibility; the `hinglish_lid` stringified-options artifact is
-  documented (DATASHEET.md → Known Issues), not silently repaired.
+  documented (docs/DATASHEET.md → Known Issues), not silently repaired.

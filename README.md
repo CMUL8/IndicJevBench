@@ -134,7 +134,7 @@ Packaged counts from `datasets/manifest.json` (frozen 2026-09-22; 69,402 items t
 | `hinglish_lid` | lid | hi-Latn | 3,220 | CC BY 4.0 | COMI-LINGUA |
 | `synthetic_enterprise` | escalation / routing / urgency | hi-Latn, hi-Deva | 444 | CC BY 4.0 | cmul8 synthetic (Qwen3+DeepSeek) |
 
-See [DATASHEET.md](DATASHEET.md) for construction details and known issues, and [docs/LANGUAGES.md](docs/LANGUAGES.md) for the supported-language table.
+See [DATASHEET.md](docs/DATASHEET.md) for construction details and known issues, and [docs/LANGUAGES.md](docs/LANGUAGES.md) for the supported-language table.
 
 ---
 
@@ -187,14 +187,15 @@ Exact hardware, sampling parameters, and sampling budgets affect latency and cos
 
 ```
 ├── datasets/v1/            JSONL task files (frozen; built by scripts/package_datasets.py)
-├── docs/                   LANGUAGES.md, ARCHITECTURE.md, ADAPTERS.md
+├── docs/                   BENCHMARK_EXPLAINED, DATASHEET, IMPLEMENTATION,
+│                           LANGUAGES, ARCHITECTURE, ADAPTERS
 ├── src/indicjevbench/      Python package (schemas, core, adapters, metrics, scoring, CLI)
 ├── results/v1/             Raw logs and result JSON files (gitignored)
 ├── scripts/                Thin CLI wrappers + package_datasets.py
 └── tests/                  pytest tests (no GPU/network required)
 ```
 
-Docs: [BENCHMARK_EXPLAINED.md](BENCHMARK_EXPLAINED.md) · [IMPLEMENTATION.md](IMPLEMENTATION.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADAPTERS.md](docs/ADAPTERS.md) · [docs/LANGUAGES.md](docs/LANGUAGES.md) · [DATASHEET.md](DATASHEET.md)
+Docs: [BENCHMARK_EXPLAINED.md](docs/BENCHMARK_EXPLAINED.md) · [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADAPTERS.md](docs/ADAPTERS.md) · [docs/LANGUAGES.md](docs/LANGUAGES.md) · [DATASHEET.md](docs/DATASHEET.md)
 
 ---
 
@@ -212,7 +213,7 @@ IndicJevBench is inspired by and modeled on **[JevBench](https://github.com/fsta
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Dataset licenses vary per task; see [DATASHEET.md](DATASHEET.md).
+MIT — see [LICENSE](LICENSE). Dataset licenses vary per task; see [DATASHEET.md](docs/DATASHEET.md).
 
 ---
 
