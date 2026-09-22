@@ -8,8 +8,8 @@ Install:
     pip install "indicjevbench[baselines]"
 
 Run:
-    python scripts/eval_qwen3.py --device cuda
-    python scripts/eval_qwen3.py --device cuda --max-items 0
+    uv run python scripts/eval_qwen3.py --device cuda
+    uv run python scripts/eval_qwen3.py --device cuda --max-items 0
 """
 
 from __future__ import annotations

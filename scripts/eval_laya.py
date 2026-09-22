@@ -7,10 +7,10 @@ Install:
     pip install "indicjevbench[baselines]" laya
 
 Run:
-    python scripts/eval_laya.py
-    python scripts/eval_laya.py --max-items 200
-    python scripts/eval_laya.py --checkpoint convaiinnovations/laya-multilingual
-    python scripts/eval_laya.py --device cuda
+    uv run python scripts/eval_laya.py
+    uv run python scripts/eval_laya.py --max-items 200
+    uv run python scripts/eval_laya.py --checkpoint convaiinnovations/laya-multilingual
+    uv run python scripts/eval_laya.py --device cuda
 """
 
 from __future__ import annotations

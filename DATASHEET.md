@@ -81,7 +81,7 @@ Internal project. No external funding.
 Automated pipelines written by cmul8.com engineers. No crowd workers for the benchmark split itself.
 
 **Over what timeframe?**
-Phase 1–3 of the Nirṇaya project, September 2026.
+v1 curation iterations, September 2026.
 
 ---
 

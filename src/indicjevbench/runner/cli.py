@@ -18,6 +18,15 @@ from indicjevbench.utils.logging import configure_logging
 logger = logging.getLogger(__name__)
 
 
+def _default_run_id() -> str:
+    """Generate the default timestamped run identifier.
+
+    Returns:
+        ``run_YYYYMMDD_HHMMSS`` in UTC.
+    """
+    return f"run_{datetime.now(UTC):%Y%m%d_%H%M%S}"
+
+
 def build_adapter(args: argparse.Namespace) -> BenchAdapter:
     """Construct the BenchAdapter selected by ``--adapter``.
 
@@ -91,7 +100,7 @@ def run_evaluation(
         ValueError: If ``task_files`` is empty.
     """
     paths = paths if paths is not None else BenchPaths.default()
-    run_id = run_id if run_id is not None else f"run_{datetime.now(UTC):strftime('%Y%m%d_%H%M%S')}"
+    run_id = run_id if run_id is not None else _default_run_id()
     files = [Path(t) for t in task_files]
     if not files:
         raise ValueError("run_evaluation requires at least one task file")

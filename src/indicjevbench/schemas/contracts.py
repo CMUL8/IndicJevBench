@@ -77,6 +77,18 @@ class Question:
             instructions = data["instructions"]
         except KeyError as exc:
             raise ValueError(f"question missing required key: {exc.args[0]}") from exc
+        if not isinstance(q_type, str):
+            raise TypeError(
+                f"question 'type' must be a str (choice|score|noul), got {type(q_type).__name__}"
+            )
+        if q_type not in ("choice", "score", "noul"):
+            raise ValueError(
+                f"unknown question type {q_type!r}; expected one of {_VALID_QUESTION_TYPES}"
+            )
+        if not isinstance(instructions, str):
+            raise TypeError(
+                f"question 'instructions' must be a str, got {type(instructions).__name__}"
+            )
         raw_options: Any = data.get("options")
         if raw_options is not None and (
             not isinstance(raw_options, (list, tuple))
