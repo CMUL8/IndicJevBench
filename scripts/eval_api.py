@@ -21,6 +21,9 @@ from datetime import UTC, datetime
 from indicjevbench.configs.env import get_api_key
 from indicjevbench.configs.paths import BenchPaths
 from indicjevbench.runner.cli import close_adapter, run_evaluation
+from indicjevbench.utils.logging import configure_logging, get_logger
+
+logger = get_logger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 ALL_DATASETS = ["intent_massive", "fintech_banking77", "hinglish_lid", "synthetic_enterprise"]
@@ -58,10 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Process exit code (1 if no API key is configured).
     """
+    configure_logging()
     args = parse_args(argv)
     api_key = get_api_key("OPENROUTER_API_KEY", "OPENAI_API_KEY")
     if not api_key:
-        print("Set OPENROUTER_API_KEY in environment.", file=sys.stderr)
+        logger.error("Set OPENROUTER_API_KEY in environment.")
         return 1
 
     from indicjevbench.adapters.api_llm import APILLMAdapter  # lazy: openai extra
