@@ -15,7 +15,9 @@ Usage:
 from __future__ import annotations
 
 import time
-from .base import BenchAdapter, DecisionResult
+
+from indicjevbench.adapters.base import BenchAdapter, DecisionResult
+from indicjevbench.schemas.contracts import Task
 
 _MODEL_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 
@@ -63,12 +65,12 @@ class SemIfAdapter(BenchAdapter):
             dtype=dtype,
         )
 
-    def _build_row(self, task) -> tuple[dict, list[str]]:
+    def _build_row(self, task: Task) -> tuple[dict, list[str]]:
         """Convert Task to SemIf row. Returns (row_dict, option_ids_in_order)."""
         q = task.question
-        q_type = q["type"]
-        instructions = q["instructions"]
-        raw_options = q.get("options") or []
+        q_type = q.type
+        instructions = q.instructions
+        raw_options = q.options or []
 
         if q_type == "noul":
             options = [
@@ -91,7 +93,7 @@ class SemIfAdapter(BenchAdapter):
         }
         return row, option_order
 
-    def decide(self, task) -> DecisionResult:
+    def decide(self, task: Task) -> DecisionResult:
         row, option_order = self._build_row(task)
 
         t0 = time.perf_counter()

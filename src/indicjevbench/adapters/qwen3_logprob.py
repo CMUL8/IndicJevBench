@@ -12,14 +12,13 @@ from __future__ import annotations
 
 import math
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import torch
-
-from .base import BenchAdapter, DecisionResult
+from indicjevbench.adapters.base import BenchAdapter, DecisionResult
+from indicjevbench.schemas.contracts import Question, Task
 
 if TYPE_CHECKING:
-    pass
+    import torch  # noqa: F401
 
 # Mirrors format.py template markers
 _TEMPLATE = "[STATE]\n{state}\n[QUESTION]\n{instructions}\n[OPTIONS]\n{options}[ANSWER]"
@@ -47,6 +46,9 @@ class Qwen3LogprobAdapter(BenchAdapter):
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id, local_files_only=local_files_only
         )
+        import torch
+
+        self._torch = torch
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             dtype=torch.bfloat16,
@@ -56,24 +58,28 @@ class Qwen3LogprobAdapter(BenchAdapter):
         self.model.eval()
         self.device = device
 
-    def _build_prefix(self, state: str, question: dict) -> str:
-        options = question.get("options") or []
-        if question["type"] == "noul":
+    def _build_prefix(self, state: str, question: Question) -> str:
+        options = question.options or []
+        if question.type == "noul":
             return _TEMPLATE_NOUL.format(
                 state=state,
-                instructions=question["instructions"],
+                instructions=question.instructions,
             )
         opts_str = "".join(f"({i+1}) {opt}\n" for i, opt in enumerate(options))
         return _TEMPLATE.format(
             state=state,
-            instructions=question["instructions"],
+            instructions=question.instructions,
             options=opts_str,
         )
 
-    @torch.inference_mode()
     def _score_continuations(self, prefix: str, continuations: list[str]) -> list[float]:
         """Return log-prob of each continuation given the prefix."""
+        torch = self._torch
         enc = self.tokenizer
+        with torch.inference_mode():
+            return self._score_continuations_inner(torch, enc, prefix, continuations)
+
+    def _score_continuations_inner(self, torch: Any, enc: Any, prefix: str, continuations: list[str]) -> list[float]:
         prefix_ids = enc.encode(prefix, add_special_tokens=True, return_tensors="pt").to(self.device)
 
         log_probs = []
@@ -97,11 +103,11 @@ class Qwen3LogprobAdapter(BenchAdapter):
         total = sum(exp)
         return [e / total for e in exp]
 
-    def decide(self, task) -> DecisionResult:
+    def decide(self, task: Task) -> DecisionResult:
         q = task.question
         prefix = self._build_prefix(task.state, q)
         t0 = time.perf_counter()
-        if q["type"] == "noul":
+        if q.type == "noul":
             log_probs = self._score_continuations(prefix, [" No", " Yes"])
             probs = self._softmax(log_probs)  # [P(false), P(true)]
             p_true = probs[1]
@@ -116,7 +122,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
                 latency_ms=latency_ms,
             )
         else:
-            options = q.get("options") or []
+            options = q.options or []
             continuations = [f" {opt}" for opt in options]
             log_probs = self._score_continuations(prefix, continuations)
             probs = self._softmax(log_probs)
@@ -124,7 +130,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
             k = len(probs)
             conf = (probs[argmax] - 1/k) / (1 - 1/k) if k > 1 else 1.0
             expected = None
-            if q["type"] == "score":
+            if q.type == "score":
                 expected = sum((i + 1) * p for i, p in enumerate(probs))
             latency_ms = (time.perf_counter() - t0) * 1000
             return DecisionResult(
