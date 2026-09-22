@@ -110,8 +110,10 @@ Measured by cmul8 on 2026-09-22 using 1000 items per dataset (where available).
 | Model | Type | fintech_banking77 | synthetic_enterprise | intent_massive | hinglish_lid |
 |-------|------|-------------------|----------------------|----------------|--------------|
 | OpenJev (Qwen3.5-4B) | local | acc=0.620 / IJScore=78.3 | acc=0.606 / IJScore=79.6 | N/A (>16-option limit) | acc=0.998 / IJScore=87.2 |
-| Qwen3-4B (zero-shot logprob) | local | acc=0.373 / IJScore=55.3 | acc=0.525 / IJScore=68.5 | acc=0.316 / IJScore=49.6 | acc=0.840 / IJScore=2.3† |
+| Laya-multilingual | local | acc=0.455 / IJScore=69.3 | acc=0.351 / IJScore=58.7 | acc=0.350 / IJScore=61.7 | acc=0.493 / IJScore=73.7 |
 | GPT-4o-mini (OpenRouter) | API | acc=0.775 / IJScore=56.1 | acc=0.670 / IJScore=46.6 | acc=0.580 / IJScore=51.3 | acc=0.175 / IJScore=21.2‡ |
+| Laya (base) | local | acc=0.256 / IJScore=56.2 | acc=0.369 / IJScore=64.5 | acc=0.199 / IJScore=50.2 | acc=0.569 / IJScore=74.0 |
+| Qwen3-4B (zero-shot logprob) | local | acc=0.373 / IJScore=55.3 | acc=0.525 / IJScore=68.5 | acc=0.316 / IJScore=49.6 | acc=0.840 / IJScore=2.3† |
 
 † Qwen3-4B logprob scoring runs one forward pass per option. hinglish_lid has many language classes, pushing latency to ~16s/item and collapsing the speed axis.
 ‡ GPT-4o-mini hinglish_lid had 46/200 JSON parse errors (pre-fix run); accuracy and IJScore are underestimates.

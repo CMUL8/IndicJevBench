@@ -115,13 +115,15 @@ Live at [cmul8-hf/IndicJevBench](https://huggingface.co/datasets/cmul8-hf/IndicJ
 | Model | Type | fintech_banking77 | synthetic_enterprise | intent_massive | hinglish_lid |
 |-------|------|-------------------|----------------------|----------------|--------------|
 | OpenJev (Qwen3.5-4B) | local | acc=0.620, IJScore=78.3 | acc=0.606, IJScore=79.6 | N/A (>16-option limit) | acc=0.998, IJScore=87.2 |
-| Qwen3-4B (zero-shot logprob) | local | acc=0.373, IJScore=55.3 | acc=0.525, IJScore=68.5 | acc=0.316, IJScore=49.6 | acc=0.840, IJScore=2.3† |
+| Laya-multilingual | local | acc=0.455, IJScore=69.3 | acc=0.351, IJScore=58.7 | acc=0.350, IJScore=61.7 | acc=0.493, IJScore=73.7 |
 | GPT-4o-mini (OpenRouter) | API | acc=0.775, IJScore=56.1 | acc=0.670, IJScore=46.6 | acc=0.580, IJScore=51.3 | acc=0.175, IJScore=21.2‡ |
+| Laya (base) | local | acc=0.256, IJScore=56.2 | acc=0.369, IJScore=64.5 | acc=0.199, IJScore=50.2 | acc=0.569, IJScore=74.0 |
+| Qwen3-4B (zero-shot logprob) | local | acc=0.373, IJScore=55.3 | acc=0.525, IJScore=68.5 | acc=0.316, IJScore=49.6 | acc=0.840, IJScore=2.3† |
 
 † Qwen3-4B logprob scoring takes ~16s/item on hinglish_lid (one forward pass per option × many language classes), collapsing the speed axis.
 ‡ GPT-4o-mini hinglish_lid had 46/200 JSON parse errors (pre-fix run); accuracy and IJScore are underestimates.
 
-Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated. The meaningful signal for general models is in fintech_banking77, intent_massive, and synthetic_enterprise.
+Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated. The meaningful signal for general models is in fintech_banking77, intent_massive, and synthetic_enterprise. Laya and Qwen3-4B run locally with ~45ms latency; GPT-4o-mini runs via API at ~2s/call.
 
 ---
 
