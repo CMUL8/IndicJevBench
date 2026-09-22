@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 
 import pytest
 
@@ -12,8 +11,8 @@ from indicjevbench.metrics import (
     accuracy,
     append_to_leaderboard,
     automatable_share,
-    brier,
     breakdown,
+    brier,
     compute_all,
     ece,
     macro_f1,
@@ -214,9 +213,6 @@ def test_ece_perfect_calibration():
     # 10 examples: 5 correct at confidence 0.8, 5 wrong at confidence 0.2
     # But this doesn't give ECE=0. Instead, use exactly calibrated examples:
     # All in a single bin with confidence=0.7 and accuracy=0.7
-    probs = [[0.7, 0.3]] * 7 + [[0.3, 0.7]] * 3
-    labels = [0] * 7 + [1] * 3   # 7 correct (p_max=0.7), 3 correct (p_max=0.7)
-    # All 10 in the same bin: conf=0.7, acc=1.0 — not perfect
     # Perfect calibration: p_max = fraction correct in every bin
     # Construct: 5 items with p_max=0.6 (3 correct, 2 wrong) → conf=0.6, acc=0.6
     probs2 = [[0.6, 0.4]] * 3 + [[0.4, 0.6]] * 2
@@ -290,7 +286,7 @@ def test_automatable_share_threshold_logic():
 
 
 def test_automatable_share_empty():
-    share, threshold = automatable_share([], [], [])
+    share, _ = automatable_share([], [], [])
     assert math.isnan(share)
 
 
