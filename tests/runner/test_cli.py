@@ -63,7 +63,9 @@ def test_build_adapter_dispatch_returns_adapter_type(adapter_name: str) -> None:
 
 def test_build_adapter_passes_endpoint_and_model() -> None:
     """http dispatch forwards --endpoint positionally and --model by keyword."""
-    fake = cast(_FakeAdapter, build_adapter(_namespace(adapter="http", endpoint="http://x:1", model="m1")))
+    fake = cast(
+        _FakeAdapter, build_adapter(_namespace(adapter="http", endpoint="http://x:1", model="m1"))
+    )
     assert fake.args == ("http://x:1",)
     assert fake.kwargs == {"model": "m1"}
 

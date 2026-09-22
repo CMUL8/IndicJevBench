@@ -12,6 +12,7 @@ Run:
     python scripts/eval_laya.py --checkpoint convaiinnovations/laya-multilingual
     python scripts/eval_laya.py --device cuda
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,8 +37,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--datasets", nargs="+", default=ALL_DATASETS)
     parser.add_argument("--max-items", type=int, default=1000, help="items per dataset, 0=all")
-    parser.add_argument("--checkpoint", default="convaiinnovations/laya-multilingual",
-                        help="HF model ID or local path")
+    parser.add_argument(
+        "--checkpoint",
+        default="convaiinnovations/laya-multilingual",
+        help="HF model ID or local path",
+    )
     parser.add_argument("--device", default="cuda", help="cuda / cpu (default: cuda)")
     return parser.parse_args(argv)
 
@@ -61,8 +65,14 @@ def main(argv: list[str] | None = None) -> int:
     ckpt_short = args.checkpoint.split("/")[-1]
     run_id = f"laya_{ckpt_short}_{datetime.now(UTC):%Y%m%d_%H%M%S}"
     try:
-        run_evaluation(adapter, task_files, model=args.checkpoint,
-                       max_examples=args.max_items or None, run_id=run_id, paths=paths)
+        run_evaluation(
+            adapter,
+            task_files,
+            model=args.checkpoint,
+            max_examples=args.max_items or None,
+            run_id=run_id,
+            paths=paths,
+        )
     finally:
         close_adapter(adapter)
     return 0

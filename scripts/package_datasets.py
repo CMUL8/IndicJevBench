@@ -20,6 +20,7 @@ Output item format::
 Run:
     python scripts/package_datasets.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -221,8 +222,9 @@ def package(data_final: Path, datasets_dir: Path, manifest_path: Path) -> dict[s
         "skipped_rows": skipped,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    logger.info("manifest written: %d total items, %d skipped rows",
-                manifest["total_items"], skipped)
+    logger.info(
+        "manifest written: %d total items, %d skipped rows", manifest["total_items"], skipped
+    )
     return manifest
 
 
@@ -237,12 +239,16 @@ def main(argv: list[str] | None = None) -> int:
     """
     configure_logging()
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("--data-final", type=Path, default=DATA_FINAL,
-                        help="raw pipeline JSONL input")
-    parser.add_argument("--datasets-dir", type=Path, default=DATASETS_DIR,
-                        help="output directory for v1 JSONL files")
-    parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH,
-                        help="output manifest path")
+    parser.add_argument(
+        "--data-final", type=Path, default=DATA_FINAL, help="raw pipeline JSONL input"
+    )
+    parser.add_argument(
+        "--datasets-dir",
+        type=Path,
+        default=DATASETS_DIR,
+        help="output directory for v1 JSONL files",
+    )
+    parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH, help="output manifest path")
     args = parser.parse_args(argv)
     try:
         package(args.data_final, args.datasets_dir, args.manifest)

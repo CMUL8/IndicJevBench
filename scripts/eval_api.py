@@ -11,6 +11,7 @@ Run:
     OPENROUTER_API_KEY=sk-or-... python scripts/eval_api.py --model openai/gpt-4o
     OPENROUTER_API_KEY=sk-or-... python scripts/eval_api.py --datasets fintech_banking77 --max-items 200
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,8 +37,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--datasets", nargs="+", default=ALL_DATASETS)
-    parser.add_argument("--max-items", type=int, default=200,
-                        help="items per dataset (default 200 to control cost), 0=all")
+    parser.add_argument(
+        "--max-items",
+        type=int,
+        default=200,
+        help="items per dataset (default 200 to control cost), 0=all",
+    )
     parser.add_argument("--model", default="openai/gpt-4o-mini", help="OpenRouter model ID")
     parser.add_argument("--budget", type=float, default=5.0, help="max spend in USD")
     parser.add_argument("--base-url", default=OPENROUTER_BASE_URL)
@@ -68,8 +73,14 @@ def main(argv: list[str] | None = None) -> int:
     task_files = [paths.datasets_dir / f"{name}.jsonl" for name in args.datasets]
     run_id = f"api_{args.model.replace('/', '_')}_{datetime.now(UTC):%Y%m%d_%H%M%S}"
     try:
-        run_evaluation(adapter, task_files, model=args.model,
-                       max_examples=args.max_items or None, run_id=run_id, paths=paths)
+        run_evaluation(
+            adapter,
+            task_files,
+            model=args.model,
+            max_examples=args.max_items or None,
+            run_id=run_id,
+            paths=paths,
+        )
     finally:
         close_adapter(adapter)
     return 0

@@ -403,6 +403,15 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "openai" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
@@ -416,6 +425,15 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'baselines'", specifier = ">=4.40" },
 ]
 provides-extras = ["baselines", "dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "openai", specifier = ">=1.0" },
+    { name = "pyright" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "iniconfig"

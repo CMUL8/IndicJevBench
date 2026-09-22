@@ -11,6 +11,12 @@ Usage:
     indicjevbench run --adapter semif --device cuda
     indicjevbench run --adapter semif --model Qwen/Qwen3.5-4B --device cuda
 """
+# The optional baseline packages this adapter lazy-imports (heavyweight
+# torch/transformers, semif_phase1 from git, or the private nirnaya
+# checkpoint package) are not installed in the dev environment, so the
+# unknown-type diagnostics for their runtime objects cannot be resolved
+# here; they are relaxed for this file only, not package-wide.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
 
 from __future__ import annotations
 
@@ -81,7 +87,9 @@ class SemIfAdapter(BenchAdapter):
             device=device,
             dtype=dtype,
         )
-        logger.info("SemIfAdapter loaded model=%s revision=%s device=%s", model_id, revision, device)
+        logger.info(
+            "SemIfAdapter loaded model=%s revision=%s device=%s", model_id, revision, device
+        )
 
     def _build_row(self, task: Task) -> tuple[dict[str, Any], list[str]]:
         """Convert Task to SemIf row.
@@ -103,14 +111,11 @@ class SemIfAdapter(BenchAdapter):
         if q_type == "noul":
             options = [
                 {"id": "false", "description": "No"},
-                {"id": "true",  "description": "Yes"},
+                {"id": "true", "description": "Yes"},
             ]
             option_order = ["false", "true"]
         else:
-            options = [
-                {"id": str(i), "description": opt}
-                for i, opt in enumerate(raw_options)
-            ]
+            options = [{"id": str(i), "description": opt} for i, opt in enumerate(raw_options)]
             option_order = [str(i) for i in range(len(raw_options))]
 
         row = {
@@ -169,10 +174,7 @@ class SemIfAdapter(BenchAdapter):
             answer = argmax
             k = len(probs)
             confidence = (probs[argmax] - 1 / k) / (1 - 1 / k) if k > 1 else 1.0
-            expected = (
-                sum((i + 1) * p for i, p in enumerate(probs))
-                if q_type == "score" else None
-            )
+            expected = sum((i + 1) * p for i, p in enumerate(probs)) if q_type == "score" else None
 
         return DecisionResult(
             task_id=task.id,

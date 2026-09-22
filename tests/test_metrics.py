@@ -24,6 +24,7 @@ from indicjevbench.metrics import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _uniform(k: int) -> list[float]:
     return [1.0 / k] * k
 
@@ -41,23 +42,98 @@ def _noul_probs(p_true: float) -> list[float]:
 # Tiny synthetic batch: 5 choice (K=3), 5 score (K=5), 5 noul
 _EXAMPLES = [
     # choice
-    {"id": "e0", "lang": "hi-Deva", "source": "massive",    "questions": [{"qid": "q", "type": "choice", "label": 0}]},
-    {"id": "e1", "lang": "hi-Deva", "source": "massive",    "questions": [{"qid": "q", "type": "choice", "label": 1}]},
-    {"id": "e2", "lang": "bn-Beng", "source": "massive",    "questions": [{"qid": "q", "type": "choice", "label": 2}]},
-    {"id": "e3", "lang": "bn-Beng", "source": "massive",    "questions": [{"qid": "q", "type": "choice", "label": 0}]},
-    {"id": "e4", "lang": "ta-Taml", "source": "massive",    "questions": [{"qid": "q", "type": "choice", "label": 1}]},
+    {
+        "id": "e0",
+        "lang": "hi-Deva",
+        "source": "massive",
+        "questions": [{"qid": "q", "type": "choice", "label": 0}],
+    },
+    {
+        "id": "e1",
+        "lang": "hi-Deva",
+        "source": "massive",
+        "questions": [{"qid": "q", "type": "choice", "label": 1}],
+    },
+    {
+        "id": "e2",
+        "lang": "bn-Beng",
+        "source": "massive",
+        "questions": [{"qid": "q", "type": "choice", "label": 2}],
+    },
+    {
+        "id": "e3",
+        "lang": "bn-Beng",
+        "source": "massive",
+        "questions": [{"qid": "q", "type": "choice", "label": 0}],
+    },
+    {
+        "id": "e4",
+        "lang": "ta-Taml",
+        "source": "massive",
+        "questions": [{"qid": "q", "type": "choice", "label": 1}],
+    },
     # score
-    {"id": "e5", "lang": "hi-Latn", "source": "synthetic",  "questions": [{"qid": "q", "type": "score", "label": 0}]},
-    {"id": "e6", "lang": "hi-Latn", "source": "synthetic",  "questions": [{"qid": "q", "type": "score", "label": 2}]},
-    {"id": "e7", "lang": "hi-Deva", "source": "synthetic",  "questions": [{"qid": "q", "type": "score", "label": 4}]},
-    {"id": "e8", "lang": "hi-Deva", "source": "synthetic",  "questions": [{"qid": "q", "type": "score", "label": 1}]},
-    {"id": "e9", "lang": "hi-Deva", "source": "synthetic",  "questions": [{"qid": "q", "type": "score", "label": 3}]},
+    {
+        "id": "e5",
+        "lang": "hi-Latn",
+        "source": "synthetic",
+        "questions": [{"qid": "q", "type": "score", "label": 0}],
+    },
+    {
+        "id": "e6",
+        "lang": "hi-Latn",
+        "source": "synthetic",
+        "questions": [{"qid": "q", "type": "score", "label": 2}],
+    },
+    {
+        "id": "e7",
+        "lang": "hi-Deva",
+        "source": "synthetic",
+        "questions": [{"qid": "q", "type": "score", "label": 4}],
+    },
+    {
+        "id": "e8",
+        "lang": "hi-Deva",
+        "source": "synthetic",
+        "questions": [{"qid": "q", "type": "score", "label": 1}],
+    },
+    {
+        "id": "e9",
+        "lang": "hi-Deva",
+        "source": "synthetic",
+        "questions": [{"qid": "q", "type": "score", "label": 3}],
+    },
     # noul
-    {"id": "e10", "lang": "hi-Latn", "source": "comilingua", "questions": [{"qid": "q", "type": "noul", "label": True}]},
-    {"id": "e11", "lang": "hi-Latn", "source": "comilingua", "questions": [{"qid": "q", "type": "noul", "label": False}]},
-    {"id": "e12", "lang": "hi-Latn", "source": "comilingua", "questions": [{"qid": "q", "type": "noul", "label": True}]},
-    {"id": "e13", "lang": "bn-Beng", "source": "comilingua", "questions": [{"qid": "q", "type": "noul", "label": False}]},
-    {"id": "e14", "lang": "bn-Beng", "source": "comilingua", "questions": [{"qid": "q", "type": "noul", "label": True}]},
+    {
+        "id": "e10",
+        "lang": "hi-Latn",
+        "source": "comilingua",
+        "questions": [{"qid": "q", "type": "noul", "label": True}],
+    },
+    {
+        "id": "e11",
+        "lang": "hi-Latn",
+        "source": "comilingua",
+        "questions": [{"qid": "q", "type": "noul", "label": False}],
+    },
+    {
+        "id": "e12",
+        "lang": "hi-Latn",
+        "source": "comilingua",
+        "questions": [{"qid": "q", "type": "noul", "label": True}],
+    },
+    {
+        "id": "e13",
+        "lang": "bn-Beng",
+        "source": "comilingua",
+        "questions": [{"qid": "q", "type": "noul", "label": False}],
+    },
+    {
+        "id": "e14",
+        "lang": "bn-Beng",
+        "source": "comilingua",
+        "questions": [{"qid": "q", "type": "noul", "label": True}],
+    },
 ]
 
 _ANSWERS_PERFECT = [
@@ -74,11 +150,11 @@ _ANSWERS_PERFECT = [
     {"id": "q", "type": "score", "probabilities": _one_hot(5, 1), "expected": 2.0},
     {"id": "q", "type": "score", "probabilities": _one_hot(5, 3), "expected": 4.0},
     # noul
-    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},   # true, correct
-    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},   # false, correct
-    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},   # true, correct
-    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},   # false, correct
-    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},   # true, correct
+    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},  # true, correct
+    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},  # false, correct
+    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},  # true, correct
+    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},  # false, correct
+    {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},  # true, correct
 ]
 
 _ANSWERS_WRONG = [
@@ -87,11 +163,36 @@ _ANSWERS_WRONG = [
     {"id": "q", "type": "choice", "probabilities": _one_hot(3, 0)},  # label=2, pred=0 WRONG
     {"id": "q", "type": "choice", "probabilities": _one_hot(3, 1)},  # label=0, pred=1 WRONG
     {"id": "q", "type": "choice", "probabilities": _one_hot(3, 0)},  # label=1, pred=0 WRONG
-    {"id": "q", "type": "score",  "probabilities": _one_hot(5, 4), "expected": 5.0},  # label=0, WRONG
-    {"id": "q", "type": "score",  "probabilities": _one_hot(5, 0), "expected": 1.0},  # label=2, WRONG
-    {"id": "q", "type": "score",  "probabilities": _one_hot(5, 0), "expected": 1.0},  # label=4, WRONG
-    {"id": "q", "type": "score",  "probabilities": _one_hot(5, 4), "expected": 5.0},  # label=1, WRONG
-    {"id": "q", "type": "score",  "probabilities": _one_hot(5, 0), "expected": 1.0},  # label=3, WRONG
+    {
+        "id": "q",
+        "type": "score",
+        "probabilities": _one_hot(5, 4),
+        "expected": 5.0,
+    },  # label=0, WRONG
+    {
+        "id": "q",
+        "type": "score",
+        "probabilities": _one_hot(5, 0),
+        "expected": 1.0,
+    },  # label=2, WRONG
+    {
+        "id": "q",
+        "type": "score",
+        "probabilities": _one_hot(5, 0),
+        "expected": 1.0,
+    },  # label=4, WRONG
+    {
+        "id": "q",
+        "type": "score",
+        "probabilities": _one_hot(5, 4),
+        "expected": 5.0,
+    },  # label=1, WRONG
+    {
+        "id": "q",
+        "type": "score",
+        "probabilities": _one_hot(5, 0),
+        "expected": 1.0,
+    },  # label=3, WRONG
     {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},  # label=True,  pred=False WRONG
     {"id": "q", "type": "noul", "probabilities": _noul_probs(0.9)},  # label=False, pred=True  WRONG
     {"id": "q", "type": "noul", "probabilities": _noul_probs(0.1)},  # label=True,  pred=False WRONG
@@ -103,6 +204,7 @@ _ANSWERS_WRONG = [
 # ---------------------------------------------------------------------------
 # accuracy
 # ---------------------------------------------------------------------------
+
 
 def test_accuracy_all_correct():
     assert accuracy([0, 1, 2], [0, 1, 2]) == pytest.approx(1.0)
@@ -124,6 +226,7 @@ def test_accuracy_empty():
 # macro_f1
 # ---------------------------------------------------------------------------
 
+
 def test_macro_f1_balanced_perfect():
     assert macro_f1([0, 1, 2], [0, 1, 2]) == pytest.approx(1.0)
 
@@ -134,7 +237,7 @@ def test_macro_f1_all_wrong_binary():
 
 def test_macro_f1_imbalanced():
     # 100 class-0 correct, 1 class-1 correct — macro averages per class equally
-    preds =  [0] * 100 + [1]
+    preds = [0] * 100 + [1]
     labels = [0] * 100 + [1]
     # Class 0: P=1, R=1, F1=1. Class 1: P=1, R=1, F1=1. Macro=1.0
     assert macro_f1(preds, labels) == pytest.approx(1.0)
@@ -142,17 +245,18 @@ def test_macro_f1_imbalanced():
 
 def test_macro_f1_imbalanced_wrong():
     # Class 0 all predicted wrong (predicted as 1)
-    preds =  [1] * 10 + [1]
+    preds = [1] * 10 + [1]
     labels = [0] * 10 + [1]
     # Class 0: TP=0, FP=0, FN=10 → F1=0
     # Class 1: TP=1, FP=10, FN=0 → P=1/11, R=1, F1=2/12
-    f1_1 = 2 * (1/11) * 1 / (1/11 + 1)
+    f1_1 = 2 * (1 / 11) * 1 / (1 / 11 + 1)
     assert macro_f1(preds, labels) == pytest.approx((0 + f1_1) / 2, abs=1e-6)
 
 
 # ---------------------------------------------------------------------------
 # nll
 # ---------------------------------------------------------------------------
+
 
 def test_nll_correct_confident():
     probs = [[0.9, 0.1], [0.8, 0.2]]
@@ -184,6 +288,7 @@ def test_nll_empty():
 # brier
 # ---------------------------------------------------------------------------
 
+
 def test_brier_perfect():
     probs = [_one_hot(3, 0), _one_hot(3, 1)]
     labels = [0, 1]
@@ -207,6 +312,7 @@ def test_brier_worst_case_binary():
 # ---------------------------------------------------------------------------
 # ece
 # ---------------------------------------------------------------------------
+
 
 def test_ece_perfect_calibration():
     # Each example: confidence = accuracy within its bin → ECE = 0
@@ -241,6 +347,7 @@ def test_ece_perfectly_wrong():
 # mae_expected_level
 # ---------------------------------------------------------------------------
 
+
 def test_mae_expected_level_perfect():
     # predicted mean = true level (1-indexed): label=0 → level 1, expected=1.0
     assert mae_expected_level([1.0, 2.0, 3.0], [0, 1, 2]) == pytest.approx(0.0)
@@ -253,6 +360,7 @@ def test_mae_expected_level_off_by_one():
 # ---------------------------------------------------------------------------
 # automatable_share
 # ---------------------------------------------------------------------------
+
 
 def test_automatable_share_all_correct():
     # All correct at confidence 0.9 → threshold=0.0 gives share=1.0
@@ -276,9 +384,9 @@ def test_automatable_share_all_wrong():
 def test_automatable_share_threshold_logic():
     # Low-confidence items are wrong, high-confidence items are correct.
     # T should cut below the high-confidence ones.
-    confs  = [0.3, 0.3, 0.3, 0.9, 0.9, 0.9, 0.9, 0.9]
-    preds  = [1,   1,   1,   0,   0,   0,   0,   0]
-    labels = [0,   0,   0,   0,   0,   0,   0,   0]
+    confs = [0.3, 0.3, 0.3, 0.9, 0.9, 0.9, 0.9, 0.9]
+    preds = [1, 1, 1, 0, 0, 0, 0, 0]
+    labels = [0, 0, 0, 0, 0, 0, 0, 0]
     # Only items with conf>0.3 (the 5 high-conf correct ones) meet ≤5% error
     share, threshold = automatable_share(confs, preds, labels)
     assert share == pytest.approx(5 / 8)
@@ -294,11 +402,22 @@ def test_automatable_share_empty():
 # noul label casting
 # ---------------------------------------------------------------------------
 
+
 def test_noul_label_bool_cast():
     """bool True/False labels must be cast to int 1/0 inside compute_all."""
     examples = [
-        {"id": "e0", "lang": "hi-Latn", "source": "s", "questions": [{"qid": "q", "type": "noul", "label": True}]},
-        {"id": "e1", "lang": "hi-Latn", "source": "s", "questions": [{"qid": "q", "type": "noul", "label": False}]},
+        {
+            "id": "e0",
+            "lang": "hi-Latn",
+            "source": "s",
+            "questions": [{"qid": "q", "type": "noul", "label": True}],
+        },
+        {
+            "id": "e1",
+            "lang": "hi-Latn",
+            "source": "s",
+            "questions": [{"qid": "q", "type": "noul", "label": False}],
+        },
     ]
     answers = [
         {"id": "q", "type": "noul", "probabilities": [0.1, 0.9]},  # pred=True=1, label=True=1 ✓
@@ -312,36 +431,45 @@ def test_noul_label_bool_cast():
 # compute_all
 # ---------------------------------------------------------------------------
 
+
 def test_compute_all_perfect():
     result = compute_all(_ANSWERS_PERFECT, _EXAMPLES)
     assert result["choice"]["accuracy"] == pytest.approx(1.0)
-    assert result["score"]["accuracy"]  == pytest.approx(1.0)
-    assert result["noul"]["accuracy"]   == pytest.approx(1.0)
-    assert result["all"]["accuracy"]    == pytest.approx(1.0)
+    assert result["score"]["accuracy"] == pytest.approx(1.0)
+    assert result["noul"]["accuracy"] == pytest.approx(1.0)
+    assert result["all"]["accuracy"] == pytest.approx(1.0)
     assert result["score"]["mae_expected_level"] == pytest.approx(0.0)
 
 
 def test_compute_all_all_wrong():
     result = compute_all(_ANSWERS_WRONG, _EXAMPLES)
     assert result["choice"]["accuracy"] == pytest.approx(0.0)
-    assert result["score"]["accuracy"]  == pytest.approx(0.0)
-    assert result["noul"]["accuracy"]   == pytest.approx(0.0)
+    assert result["score"]["accuracy"] == pytest.approx(0.0)
+    assert result["noul"]["accuracy"] == pytest.approx(0.0)
 
 
 def test_compute_all_has_all_keys():
     result = compute_all(_ANSWERS_PERFECT, _EXAMPLES)
     for q_type in ("choice", "score", "noul", "all"):
         assert q_type in result
-    for key in ("accuracy", "macro_f1", "nll", "brier", "ece",
-                "automatable_share", "automatable_threshold"):
+    for key in (
+        "accuracy",
+        "macro_f1",
+        "nll",
+        "brier",
+        "ece",
+        "automatable_share",
+        "automatable_threshold",
+    ):
         assert key in result["choice"], f"missing {key} in choice"
-        assert key in result["noul"],   f"missing {key} in noul"
+        assert key in result["noul"], f"missing {key} in noul"
     assert "mae_expected_level" in result["score"]
 
 
 # ---------------------------------------------------------------------------
 # breakdown
 # ---------------------------------------------------------------------------
+
 
 def test_breakdown_by_lang():
     result = breakdown(_ANSWERS_PERFECT, _EXAMPLES, dim="lang")
@@ -360,6 +488,7 @@ def test_breakdown_by_source():
 # ---------------------------------------------------------------------------
 # leaderboard
 # ---------------------------------------------------------------------------
+
 
 def test_append_leaderboard_creates_file(tmp_path):
     lb_path = tmp_path / "leaderboard.json"

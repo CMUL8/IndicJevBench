@@ -119,9 +119,7 @@ def _mixed_tasks(n: int = 6) -> list[Task]:
 
 def test_run_result_dict_shape(tmp_path: Path):
     tasks = _mixed_tasks()
-    runner = BenchmarkRunner(
-        FakeAdapter(), raw_log_path=tmp_path / "raw.jsonl", task_name="test"
-    )
+    runner = BenchmarkRunner(FakeAdapter(), raw_log_path=tmp_path / "raw.jsonl", task_name="test")
     result = runner.run(tasks)
 
     assert set(result.keys()) == {"n_tasks", "n_answered", "metrics", "latency", "score"}

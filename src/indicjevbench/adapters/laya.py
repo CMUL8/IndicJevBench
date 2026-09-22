@@ -10,6 +10,12 @@ Usage:
     # or with published numbers fallback:
     adapter = LayaAdapter(published_numbers_path="laya_published.json")
 """
+# The optional baseline packages this adapter lazy-imports (heavyweight
+# torch/transformers, semif_phase1 from git, or the private nirnaya
+# checkpoint package) are not installed in the dev environment, so the
+# unknown-type diagnostics for their runtime objects cannot be resolved
+# here; they are relaxed for this file only, not package-wide.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
 
 from __future__ import annotations
 
@@ -26,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Laya's 60 MASSIVE intent labels in their canonical order.
 # Used to map predicted class index → option index in our question format.
-LAYA_INTENTS: list[str] = []  # populated on first load from model config
+laya_intents: list[str] = []  # populated on first load from model config
 
 
 class LayaAdapter(BenchAdapter):
@@ -62,9 +68,7 @@ class LayaAdapter(BenchAdapter):
         """
         self._published: dict[str, Any] | None = None
         if published_numbers_path:
-            self._published = json.loads(
-                Path(published_numbers_path).read_text(encoding="utf-8")
-            )
+            self._published = json.loads(Path(published_numbers_path).read_text(encoding="utf-8"))
             return  # skip model loading
 
         try:
@@ -85,8 +89,8 @@ class LayaAdapter(BenchAdapter):
 
             # Build intent→index map from model config
             id2label = self.model.config.id2label  # {int: str}
-            global LAYA_INTENTS
-            LAYA_INTENTS = [id2label[i] for i in range(len(id2label))]
+            global laya_intents
+            laya_intents = [id2label[i] for i in range(len(id2label))]
 
         except Exception as e:
             raise RuntimeError(
@@ -125,8 +129,7 @@ class LayaAdapter(BenchAdapter):
             )
 
         t0 = time.perf_counter()
-        inputs = self.tokenizer(task.state, return_tensors="pt",
-                                truncation=True, max_length=512)
+        inputs = self.tokenizer(task.state, return_tensors="pt", truncation=True, max_length=512)
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
         with self._torch.no_grad():
@@ -140,7 +143,7 @@ class LayaAdapter(BenchAdapter):
         for opt in option_lower:
             # Find matching Laya label (exact or first partial match)
             p = 0.0
-            for j, laya_label in enumerate(LAYA_INTENTS):
+            for j, laya_label in enumerate(laya_intents):
                 if laya_label.lower() == opt or opt in laya_label.lower():
                     p = probs_all[j]
                     break
@@ -151,7 +154,7 @@ class LayaAdapter(BenchAdapter):
         probs = [p / total for p in probs]
         argmax = int(max(range(len(probs)), key=lambda i: probs[i]))
         k = len(probs)
-        conf = (probs[argmax] - 1/k) / (1 - 1/k) if k > 1 else 1.0
+        conf = (probs[argmax] - 1 / k) / (1 - 1 / k) if k > 1 else 1.0
         latency_ms = (time.perf_counter() - t0) * 1000
 
         return DecisionResult(
