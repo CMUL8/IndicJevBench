@@ -10,7 +10,7 @@ Structured per Gebru et al. (2018) "Datasheets for Datasets".
 To provide the first open benchmark for Indic-language structured decision AI — specifically, calibrated probability outputs for typed questions (intent, urgency, escalation, routing) on enterprise customer messages in Indian languages.
 
 **Who created it and on whose behalf?**
-cmul8.com (basab@lonere-labs.com), building the Nirṇaya decision model.
+cmul8.com, as part of internal research on Indic enterprise decision AI.
 
 **Was there any funding?**
 Internal project. No external funding.
@@ -73,7 +73,7 @@ Internal project. No external funding.
 
 **How was the data collected?**
 - MASSIVE: Official test split downloaded from the MASSIVE dataset card on HuggingFace.
-- Banking77: English test set translated offline using NLLB on an H200 GPU.
+- Banking77: English test set translated offline using NLLB.
 - COMI-LINGUA: Official test split downloaded from HuggingFace.
 - Synthetic: Generated via OpenRouter API using Qwen3-235B-A22B and DeepSeek-Chat-V3-0324.
 
@@ -110,7 +110,7 @@ v1 curation iterations, September 2026.
 ## Distribution
 
 **How will the dataset be distributed?**
-As `cmul8/IndicJevBench` on HuggingFace Datasets (release date: before Nirṇaya model).
+As `cmul8/IndicJevBench` on HuggingFace Datasets.
 
 **What license applies?**
 The benchmark harness (this repo) is MIT. Dataset licenses per task:
@@ -128,7 +128,7 @@ The benchmark harness (this repo) is MIT. Dataset licenses per task:
 ## Maintenance
 
 **Who maintains the dataset?**
-cmul8.com. Contact: basab@lonere-labs.com.
+cmul8.com.
 
 **Will the dataset be updated?**
 v2 planned post-release: replace all Bitext-derived tasks with synthetic CC BY 4.0 equivalents for a fully redistributable benchmark.
