@@ -1,4 +1,15 @@
-"""IndicJevBench — benchmark harness for Indic structured decision AI."""
+"""IndicJevBench — benchmark harness for Indic structured decision AI.
+
+Public API (re-exported here, importable without heavy optional deps):
+
+Data contracts: :class:`Task`, :class:`Question`, :class:`DecisionResult`.
+Core: :class:`BenchmarkRunner`, :func:`load_tasks`, :class:`BenchAdapter`.
+Metrics: :func:`compute_all`, :func:`breakdown`, :func:`indicjev_score`.
+Config: :class:`BenchPaths`, :func:`get_api_key`.
+
+Heavy adapter dependencies (torch/transformers/openai/semif) are imported
+lazily inside adapter constructors, never at package import time.
+"""
 
 from indicjevbench.adapters.base import BenchAdapter
 from indicjevbench.configs.env import get_api_key

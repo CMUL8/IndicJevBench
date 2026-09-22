@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,88 @@ def build_adapter(args: argparse.Namespace) -> BenchAdapter:
     raise ValueError(f"Unknown adapter: {args.adapter}")
 
 
+def run_evaluation(
+    adapter: BenchAdapter,
+    task_files: Sequence[str | Path],
+    *,
+    model: str = "unknown",
+    max_examples: int | None = None,
+    output: str | Path | None = None,
+    run_id: str | None = None,
+    paths: BenchPaths | None = None,
+) -> Path:
+    """Run an adapter over task files and write a combined results JSON.
+
+    Prints one summary line per task file (this is the CLI entrypoint, so
+    printing is intentional) plus the final results path. Task files that do
+    not exist are skipped with a warning. Progress details go to the logger.
+
+    Args:
+        adapter: The BenchAdapter to evaluate.
+        task_files: JSONL task files to run, in order.
+        model: Model label recorded in the results JSON.
+        max_examples: Optional per-dataset cap on tasks evaluated.
+        output: Optional results JSON path (default: ``results_file(run_id)``).
+        run_id: Run identifier (default: timestamped ``run_<ts>``).
+        paths: BenchPaths override (default: ``BenchPaths.default()``).
+
+    Returns:
+        Path of the written results JSON.
+
+    Raises:
+        ValueError: If ``task_files`` is empty.
+    """
+    paths = paths if paths is not None else BenchPaths.default()
+    run_id = run_id if run_id is not None else f"run_{datetime.now(UTC):strftime('%Y%m%d_%H%M%S')}"
+    files = [Path(t) for t in task_files]
+    if not files:
+        raise ValueError("run_evaluation requires at least one task file")
+
+    all_results: dict[str, Any] = {"run_id": run_id, "model": model, "tasks": {}}
+
+    for task_file in files:
+        if not task_file.is_file():
+            logger.warning("task file not found, skipping: %s", task_file)
+            continue
+        task_name = task_file.stem
+        tasks = load_tasks(task_file, max_examples=max_examples)
+        logger.info("[%s] %s: %d tasks", run_id, task_name, len(tasks))
+
+        raw_log = paths.results_dir / f"{run_id}_{task_name}_raw.jsonl"
+        runner = BenchmarkRunner(adapter, raw_log_path=raw_log, task_name=task_name)
+        result = runner.run(tasks)
+        all_results["tasks"][task_name] = result
+
+        score = result["score"]
+        overall = result["metrics"].get("all", {})
+        print(
+            f"[{run_id}] {task_name}: IndicJevScore={score['indicjev_score']} "
+            f"acc={overall.get('accuracy', float('nan')):.3f} "
+            f"ece={overall.get('ece', float('nan')):.3f} "
+            f"p50={result['latency']['p50_ms']}ms "
+            f"({result['n_answered']}/{result['n_tasks']} answered)"
+        )
+
+    out_path = Path(output) if output is not None else paths.results_file(run_id)
+    atomic_write_text(out_path, json.dumps(all_results, indent=2, ensure_ascii=False))
+    print(f"Results written to {out_path}")
+    return out_path
+
+
+def close_adapter(adapter: BenchAdapter) -> None:
+    """Call ``adapter.close()`` if the adapter implements it.
+
+    Most adapters hold no external resources and do not define ``close``;
+    this is a no-op for them.
+
+    Args:
+        adapter: The adapter to shut down.
+    """
+    close = getattr(adapter, "close", None)
+    if callable(close):
+        close()
+
+
 def cmd_run(args: argparse.Namespace, paths: BenchPaths | None = None) -> None:
     """Execute the ``run`` subcommand over one or more task files.
 
@@ -66,7 +149,6 @@ def cmd_run(args: argparse.Namespace, paths: BenchPaths | None = None) -> None:
         paths: Optional BenchPaths override (defaults to ``BenchPaths.default()``).
     """
     paths = paths if paths is not None else BenchPaths.default()
-    run_id = f"run_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
     adapter = build_adapter(args)
 
     task_files = [Path(t) for t in args.tasks] if args.tasks else paths.dataset_files()
@@ -74,35 +156,17 @@ def cmd_run(args: argparse.Namespace, paths: BenchPaths | None = None) -> None:
         logger.error("No task files found. Run scripts/package_datasets.py first.")
         return
 
-    all_results: dict[str, Any] = {"run_id": run_id, "model": args.model, "tasks": {}}
-
-    for task_file in task_files:
-        task_name = task_file.stem
-        tasks = load_tasks(task_file, max_examples=args.max_examples)
-        logger.info("[%s] %s: %d tasks", run_id, task_name, len(tasks))
-
-        raw_log = paths.results_dir / f"{run_id}_{task_name}_raw.jsonl"
-        runner = BenchmarkRunner(adapter, raw_log_path=raw_log, task_name=task_name)
-        result = runner.run(tasks)
-        all_results["tasks"][task_name] = result
-
-        s = result["score"]
-        m = result["metrics"].get("all", {})
-        logger.info(
-            "[%s] %s: IndicJevScore=%s acc=%.3f ece=%.3f p50=%sms",
-            run_id, task_name, s["indicjev_score"],
-            m.get("accuracy", float("nan")),
-            m.get("ece", float("nan")),
-            result["latency"]["p50_ms"],
+    try:
+        run_evaluation(
+            adapter,
+            task_files,
+            model=args.model,
+            max_examples=args.max_examples,
+            output=args.output,
+            paths=paths,
         )
-
-    out_path = Path(args.output) if args.output else paths.results_file(run_id)
-    atomic_write_text(out_path, json.dumps(all_results, indent=2, ensure_ascii=False))
-    logger.info("Results written to %s", out_path)
-
-    close = getattr(adapter, "close", None)
-    if callable(close):
-        close()
+    finally:
+        close_adapter(adapter)
 
 
 def _build_parser() -> argparse.ArgumentParser:
