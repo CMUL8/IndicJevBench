@@ -1,0 +1,161 @@
+"""Baseline 2: Laya-multilingual intent classifier.
+
+Laya is an encoder-based intent model. It only supports intent_massive
+(choice, fixed 60-label head). For score/noul questions it raises
+NotImplementedError — the harness skips Laya for those tasks.
+
+Usage:
+    from indicjevbench.adapters.laya import LayaAdapter
+    adapter = LayaAdapter()                     # tries to load locally
+    # or with published numbers fallback:
+    adapter = LayaAdapter(published_numbers_path="laya_published.json")
+"""
+# The optional baseline packages this adapter lazy-imports (heavyweight
+# torch/transformers, semif_phase1 from git, or the private nirnaya
+# checkpoint package) are not installed in the dev environment, so the
+# unknown-type diagnostics for their runtime objects cannot be resolved
+# here; they are relaxed for this file only, not package-wide.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from pathlib import Path
+from typing import Any
+
+from indicjevbench.adapters.base import BenchAdapter
+from indicjevbench.schemas.contracts import DecisionResult, Task
+
+logger = logging.getLogger(__name__)
+
+
+class LayaAdapter(BenchAdapter):
+    """Wrap convaiinnovations/laya-multilingual as a BenchAdapter.
+
+    Only supports 'choice' questions with the MASSIVE 60-intent label set.
+    Raises NotImplementedError for score/noul questions.
+
+    If published_numbers_path is provided, decide() raises NotImplementedError
+    always — use the path to report results labeled "as published".
+    """
+
+    def __init__(
+        self,
+        model_id: str = "convaiinnovations/laya-multilingual",
+        published_numbers_path: str | None = None,
+        device: str = "cuda",
+        local_files_only: bool = True,
+    ) -> None:
+        """Load the Laya classifier, or switch to published-numbers mode.
+
+        Args:
+            model_id: Hugging Face model id of a Laya checkpoint.
+            published_numbers_path: Optional path to a JSON file with
+                previously published numbers. When provided, the model is
+                not loaded and every :meth:`decide` call raises
+                ``NotImplementedError``.
+            device: Device to run the classifier on.
+            local_files_only: Only use locally cached weights (no download).
+
+        Raises:
+            RuntimeError: If model loading fails.
+        """
+        self._published: dict[str, Any] | None = None
+        if published_numbers_path:
+            self._published = json.loads(Path(published_numbers_path).read_text(encoding="utf-8"))
+            return  # skip model loading
+
+        try:
+            import torch
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_id, local_files_only=local_files_only
+            )
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                model_id,
+                local_files_only=local_files_only,
+            )
+            self.model.eval()
+            self.model = self.model.to(device)
+            self._device = device
+            self._torch = torch
+
+            # Build intent→index map from model config
+            id2label = self.model.config.id2label  # {int: str}
+            self._laya_intents: list[str] = [id2label[i] for i in range(len(id2label))]
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load Laya ({model_id}): {e}\n"
+                "Timebox: 90 minutes. If loading fails, use published_numbers_path "
+                "to report Laya numbers labeled 'as published by convaiinnovations'."
+            ) from e
+
+    def decide(self, task: Task) -> DecisionResult:
+        """Classify the task state into the MASSIVE intent option set.
+
+        Args:
+            task: The benchmark task.
+
+        Returns:
+            A decision result with probabilities re-aligned to the question's
+            option order (re-normalised) and the argmax index as answer.
+
+        Raises:
+            NotImplementedError: In published-numbers mode, or for
+                ``score``/``noul`` questions (unsupported by the fixed
+                intent head).
+        """
+        if self._published is not None:
+            raise NotImplementedError(
+                "LayaAdapter is in published-numbers mode. "
+                "Results are reported as 'as published by convaiinnovations'."
+            )
+
+        q = task.question
+        if q.type != "choice":
+            raise NotImplementedError(
+                f"LayaAdapter only supports 'choice' questions, got '{q.type}'. "
+                "Laya has a fixed intent classification head and cannot answer "
+                "score or noul questions."
+            )
+
+        t0 = time.perf_counter()
+        inputs = self.tokenizer(task.state, return_tensors="pt", truncation=True, max_length=512)
+        inputs = {k: v.to(self._device) for k, v in inputs.items()}
+
+        with self._torch.no_grad():
+            logits = self.model(**inputs).logits[0]
+            probs_all = self._torch.softmax(logits, dim=-1).cpu().tolist()
+
+        # Map Laya's label order to this question's option order
+        options = q.options or []
+        option_lower = [o.lower().strip() for o in options]
+        probs = []
+        for opt in option_lower:
+            # Find matching Laya label (exact or first partial match)
+            p = 0.0
+            for j, laya_label in enumerate(self._laya_intents):
+                if laya_label.lower() == opt or opt in laya_label.lower():
+                    p = probs_all[j]
+                    break
+            probs.append(p)
+
+        # Renormalise (some options may not exist in Laya's label set)
+        total = sum(probs) or 1.0
+        probs = [p / total for p in probs]
+        argmax = int(max(range(len(probs)), key=lambda i: probs[i]))
+        k = len(probs)
+        conf = (probs[argmax] - 1 / k) / (1 - 1 / k) if k > 1 else 1.0
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        return DecisionResult(
+            task_id=task.id,
+            probabilities=probs,
+            answer=argmax,
+            confidence=conf,
+            latency_ms=latency_ms,
+        )

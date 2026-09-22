@@ -4,6 +4,8 @@
 
 IndicJevBench tests whether a model can return calibrated probability distributions for typed questions (intent classification, urgency scoring, escalation detection, agent routing) given a customer message — in Hindi, Bengali, Tamil, Telugu, Kannada, Malayalam, and Hinglish.
 
+Models are evaluated through a single interface: the System One-style `/v1/systemone` decision endpoint, which answers **choice**, **score**, and **noul** (yes/no) questions with full probability distributions.
+
 ---
 
 ## Why IndicJevBench
@@ -19,36 +21,88 @@ IndicJevBench makes this gap visible and measurable with a single number: the **
 
 ---
 
+## How It Works
+
+A benchmark run is a straight pipeline — every stage is a typed, testable unit:
+
+```mermaid
+flowchart TD
+    subgraph data["Data (frozen)"]
+        A["datasets/v1/*.jsonl<br/><i>69,402 items · CC BY 4.0</i>"]
+    end
+
+    subgraph harness["indicjevbench package"]
+        B["load_tasks()<br/><i>validate → list[Task]</i>"]
+        C{"BenchAdapter<br/><i>decide(task)</i>"}
+        D["BenchmarkRunner<br/><i>fault isolation + raw log</i>"]
+        E["metrics.py<br/><i>acc · F1 · NLL · Brier · ECE</i>"]
+        F["scoring.py<br/><i>4-axis composite</i>"]
+    end
+
+    subgraph backends["Backends"]
+        G["/v1/systemone<br/>HTTP endpoint"]
+        H["Qwen3 · SemIf · Laya<br/>local HF models"]
+        I["API LLM<br/>OpenAI-compatible"]
+    end
+
+    OUT["IndicJevScore 0–100<br/>+ results/v1/*.json"]
+
+    A --> B --> C
+    G -.-> C
+    H -.-> C
+    I -.-> C
+    G ~~~ H ~~~ I
+    C -->|DecisionResult| D --> E --> F --> OUT
+    D -.->|per-task JSONL| R["raw log<br/><i>inspectable mid-run</i>"]
+```
+
+One `Task` = a customer message (`state`) + one typed question (`choice`,
+`score`, or `noul`) + a gold label. The adapter returns a probability
+distribution; the harness measures how good *and* how calibrated it is.
+
 ## Quick Start
+
+Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ### Install
 
 ```bash
-cd bench/indicjevbench
-pip install -e .
+uv sync                      # core harness
+uv sync --extra dev          # + pytest, ruff, pyright
+uv sync --extra baselines    # + torch, transformers, openai (local/API baselines)
+```
+
+### Run the test suite
+
+```bash
+uv run pytest -q
 ```
 
 ### Run against a live HTTP endpoint
 
+Point the harness at any server implementing the `/v1/systemone` contract (see [docs/ADAPTERS.md](docs/ADAPTERS.md)):
+
 ```bash
-indicjevbench run \
+uv run indicjevbench run \
   --adapter http \
   --endpoint http://localhost:8000 \
   --model my-model
 ```
 
+With no `--tasks` flag, all JSONL files in `datasets/v1/` are evaluated.
+
 ### Run the Qwen3 zero-shot baseline (GPU required)
 
 ```bash
-indicjevbench run \
+uv run indicjevbench run \
   --adapter qwen3 \
   --device cuda
 ```
 
-### Run against a local checkpoint
+### Run against a local Nirṇaya checkpoint
 
 ```bash
-indicjevbench run \
+uv run indicjevbench run \
   --adapter local \
   --checkpoint /path/to/checkpoints/best \
   --device cuda
@@ -57,28 +111,41 @@ indicjevbench run \
 ### Run against an API LLM (OpenAI-compatible)
 
 ```bash
-OPENAI_API_KEY=sk-... indicjevbench run \
+OPENAI_API_KEY=sk-... uv run indicjevbench run \
   --adapter api \
   --model gpt-4o \
   --budget 20.0 \
   --max-examples 500
 ```
 
-### Package datasets first
+The API key falls back to `OPENROUTER_API_KEY` when `OPENAI_API_KEY` is unset (see `.env.example`). Never commit real keys.
 
-Before running, build the task JSONL files from the frozen test split:
+### Convenience scripts
+
+Thin wrappers with baseline-friendly defaults live in `scripts/`:
 
 ```bash
-python scripts/package_datasets.py
+uv run python scripts/eval_api.py --model openai/gpt-4o-mini --max-items 200
+uv run python scripts/eval_qwen3.py --device cuda
+uv run python scripts/eval_laya.py --max-items 1000
+uv run python scripts/eval_openjev.py --device auto
 ```
 
-This reads `../../data/final/test.jsonl` and writes per-task files to `datasets/v1/`.
+### Package datasets first
+
+Before running, build the task JSONL files from the frozen upstream test split:
+
+```bash
+uv run python scripts/package_datasets.py
+```
+
+This reads the upstream pipeline output (`data/final/test.jsonl`, outside this repo) and writes per-task files to `datasets/v1/` plus `datasets/manifest.json`. The `datasets/v1/*.jsonl` content is **frozen** between releases — only re-run this when intentionally rebuilding the datasets.
 
 ---
 
 ## Scoring Methodology
 
-IndicJevBench reports a composite **IndicJevScore** (0–100) as the geometric mean of four axes:
+IndicJevBench reports a composite **IndicJevScore** (0–100) as a weighted geometric mean of four axes:
 
 | Axis | Weight | Formula | Best | Worst |
 |------|--------|---------|------|-------|
@@ -87,24 +154,41 @@ IndicJevBench reports a composite **IndicJevScore** (0–100) as the geometric m
 | Speed | 20% | log-scale, 50ms=100, 5000ms=0 | 100 (p50≤50ms) | 0 (p50≥5000ms) |
 | Cost | 20% | log-scale, $0.01/1k=100, $10/1k=0; local=100 | 100 (free/local) | 0 ($10+/1k) |
 
-Composite = exp(Σ wᵢ × ln(max(axisᵢ, 1e-6)))
+Composite = exp(0.35·ln(intelligence) + 0.25·ln(calibration) + 0.20·ln(speed) + 0.20·ln(cost)); each axis is clipped to [1e-6, 100] before the log so a zero axis drives the composite toward 0. Implemented in `src/indicjevbench/scoring.py`. A model can win an axis and still lose the composite — an accurate but overconfident model, or a fast but wrong one, scores poorly.
 
 ### Per-task metrics
 
-Every task also reports: accuracy, macro-F1, NLL, Brier score, ECE (15 bins), MAE of expected level (score tasks), and automatable share (fraction of decisions auto-approvable at <5% error).
+Every task also reports: accuracy, macro-F1, NLL, Brier score, ECE (15 bins), MAE of expected level (score tasks), and automatable share (fraction of decisions auto-approvable at <5% error). Metrics are pure functions in `src/indicjevbench/metrics.py` and are additionally broken down by language and source dataset.
 
 ---
 
-## Tasks
+## Datasets (v1)
+
+Packaged counts from `datasets/manifest.json` (frozen 2026-09-22; 69,402 items total, CC BY 4.0 throughout):
 
 | Dataset name | Family | Languages | Items (v1) | License | Source |
 |---|---|---|---|---|---|
-| `intent_massive` | intent | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym | ~6,000 | CC BY 4.0 | MASSIVE test split |
-| `fintech_banking77` | intent | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym | ~2,500 | CC BY 4.0 | Banking77 + NLLB translation |
-| `hinglish_lid` | lid | hi-Latn | ~1,000 | CC BY 4.0 | COMI-LINGUA |
-| `synthetic_enterprise` | urgency / escalation / routing | hi-Latn, hi-Deva | ~2,500 | CC BY 4.0 | cmul8 synthetic (Qwen3+DeepSeek) |
+| `intent_massive` | intent | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym, en-Latn | 57,922 | CC BY 4.0 | MASSIVE test split |
+| `fintech_banking77` | intent | hi-Deva, bn-Beng, ta-Taml, te-Telu, kn-Knda, ml-Mlym, en-Latn | 7,816 | CC BY 4.0 | Banking77 + NLLB translation |
+| `hinglish_lid` | lid | hi-Latn | 3,220 | CC BY 4.0 | COMI-LINGUA |
+| `synthetic_enterprise` | escalation / routing / urgency | hi-Latn, hi-Deva | 444 | CC BY 4.0 | cmul8 synthetic (Qwen3+DeepSeek) |
 
-Exact counts depend on `scripts/package_datasets.py` output after the data pipeline runs.
+See [DATASHEET.md](docs/DATASHEET.md) for construction details and known issues, and [docs/LANGUAGES.md](docs/LANGUAGES.md) for the supported-language table.
+
+---
+
+## Adapters
+
+Every model backend implements the `BenchAdapter` interface (one `decide(task) -> DecisionResult` method). See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the contract, per-adapter notes, and how to write your own.
+
+| Adapter | CLI value | Backend | Extra required |
+|---|---|---|---|
+| `HTTPAdapter` | `http` | Any `/v1/systemone`-compatible HTTP server | — (core) |
+| `LocalAdapter` | `local` | Local Nirṇaya checkpoint via the `nirnaya` package | private model package |
+| `Qwen3LogprobAdapter` | `qwen3` | Zero-shot option log-prob scoring (Qwen3-4B-Instruct) | `baselines` |
+| `APILLMAdapter` | `api` | OpenAI-compatible chat completions in JSON mode | `baselines` |
+| `SemIfAdapter` | `semif` | SemIf / OpenJev (Qwen3.5-4B) | `semif_phase1` (openjev) |
+| `LayaAdapter` | (via `scripts/eval_laya.py`) | Laya-multilingual intent classifier (choice only) | `baselines` |
 
 ---
 
@@ -127,53 +211,58 @@ Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated.
 
 ---
 
-## Adding a New Model / Adapter
+## Reproducing Results
 
-1. Create `indicjevbench/adapters/my_model.py` implementing `BenchAdapter`:
+1. `uv sync --extra baselines` (plus `pip install git+https://github.com/TheoLeeCJ/openjev.git` for OpenJev).
+2. Ensure `datasets/v1/*.jsonl` are present (run `uv run python scripts/package_datasets.py` if not).
+3. Run the adapter of choice (CLI or `scripts/` wrapper). Results JSON is written to `results/v1/<run_id>.json`; raw per-task decisions stream to `results/v1/<run_id>_<task>_raw.jsonl`.
+4. Score breakdowns (by language, source, question type) are inside each results JSON under `metrics.by_lang` / `metrics.by_source`.
 
-```python
-from indicjevbench.adapters.base import BenchAdapter, DecisionResult
-
-class MyModelAdapter(BenchAdapter):
-    def decide(self, task) -> DecisionResult:
-        # Call your model with task.state and task.question
-        # Return a DecisionResult with probabilities, answer, confidence, latency_ms
-        ...
-```
-
-2. Register it in `indicjevbench/cli.py` under `_make_adapter()`.
-
-3. Run:
-
-```bash
-indicjevbench run --adapter my_model ...
-```
-
-See `IMPLEMENTATION.md` for the full `DecisionResult` schema and `BenchAdapter` interface.
+Exact hardware, sampling parameters, and sampling budgets affect latency and cost axes; the leaderboard numbers were measured with the defaults in `scripts/`.
 
 ---
 
 ## Repository Layout
 
 ```
-bench/indicjevbench/
-├── datasets/v1/          JSONL task files (generated by scripts/package_datasets.py)
-├── indicjevbench/        Python package (harness, metrics, adapters)
-│   └── adapters/         HTTP, local, Qwen3, API LLM, Laya adapters
-├── results/v1/           Raw logs and result JSON files (gitignored)
-├── scripts/              package_datasets.py
-├── tests/                pytest tests (no GPU/network required)
-└── docs/                 LANGUAGES.md
+├── datasets/v1/            JSONL task files (frozen; built by scripts/package_datasets.py)
+├── docs/                   BENCHMARK_EXPLAINED, DATASHEET, IMPLEMENTATION,
+│                           LANGUAGES, ARCHITECTURE, ADAPTERS
+├── src/indicjevbench/      Python package (schemas, core, adapters, metrics, scoring, CLI)
+├── results/v1/             Raw logs and result JSON files (gitignored)
+├── scripts/                Thin CLI wrappers + package_datasets.py
+└── tests/                  pytest tests (no GPU/network required)
 ```
+
+Docs: [BENCHMARK_EXPLAINED.md](docs/BENCHMARK_EXPLAINED.md) · [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADAPTERS.md](docs/ADAPTERS.md) · [docs/LANGUAGES.md](docs/LANGUAGES.md) · [DATASHEET.md](docs/DATASHEET.md)
 
 ---
 
 ## Acknowledgements
 
-IndicJevBench is inspired by and modeled on **[JevBench](https://github.com/fstandhartinger/jevbench)** by Florian Standhartinger, the benchmark for general structured decision AI. We adopted its scoring methodology (4-axis geometric mean), adapter pattern, and benchmark design philosophy. JevBench is MIT-licensed.
+IndicJevBench is inspired by and modeled on **[JevBench](https://github.com/fstandhartinger/jevbench)** by Florian Standhartinger, the benchmark for general structured decision AI. We adopted its scoring methodology (4-axis weighted geometric mean), adapter pattern, and benchmark design philosophy. JevBench is MIT-licensed.
+
+---
+
+## Trademark Disclaimer
+
+"Jev", "JevBench", and "System One" are trademarks of TypeSafe. IndicJevBench is an **independent** open-source benchmark: it is not affiliated with, endorsed by, or sponsored by TypeSafe or the JevBench project. The `/v1/systemone` endpoint shape is implemented independently and is used here only as a compatible wire contract.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Dataset licenses vary per task; see [DATASHEET.md](DATASHEET.md).
+MIT — see [LICENSE](LICENSE). Dataset licenses vary per task; see [DATASHEET.md](docs/DATASHEET.md).
+
+---
+
+## Citation
+
+```bibtex
+@misc{indicjevbench2026,
+  title  = {IndicJevBench: A Benchmark for Indic-Language Structured Decision AI},
+  author = {cmul8},
+  year   = {2026},
+  url    = {https://github.com/cmul8/IndicJevBench}
+}
+```
