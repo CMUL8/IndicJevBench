@@ -14,11 +14,15 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
+from typing import Any
 
-from indicjevbench.adapters.base import BenchAdapter, DecisionResult
-from indicjevbench.schemas.contracts import Task
+from indicjevbench.adapters.base import BenchAdapter
+from indicjevbench.schemas.contracts import DecisionResult, Task
+
+logger = logging.getLogger(__name__)
 
 # Laya's 60 MASSIVE intent labels in their canonical order.
 # Used to map predicted class index → option index in our question format.
@@ -41,8 +45,22 @@ class LayaAdapter(BenchAdapter):
         published_numbers_path: str | None = None,
         device: str = "cuda",
         local_files_only: bool = True,
-    ):
-        self._published = None
+    ) -> None:
+        """Load the Laya classifier, or switch to published-numbers mode.
+
+        Args:
+            model_id: Hugging Face model id of a Laya checkpoint.
+            published_numbers_path: Optional path to a JSON file with
+                previously published numbers. When provided, the model is
+                not loaded and every :meth:`decide` call raises
+                ``NotImplementedError``.
+            device: Device to run the classifier on.
+            local_files_only: Only use locally cached weights (no download).
+
+        Raises:
+            RuntimeError: If model loading fails.
+        """
+        self._published: dict[str, Any] | None = None
         if published_numbers_path:
             self._published = json.loads(
                 Path(published_numbers_path).read_text(encoding="utf-8")
@@ -78,6 +96,20 @@ class LayaAdapter(BenchAdapter):
             ) from e
 
     def decide(self, task: Task) -> DecisionResult:
+        """Classify the task state into the MASSIVE intent option set.
+
+        Args:
+            task: The benchmark task.
+
+        Returns:
+            A decision result with probabilities re-aligned to the question's
+            option order (re-normalised) and the argmax index as answer.
+
+        Raises:
+            NotImplementedError: In published-numbers mode, or for
+                ``score``/``noul`` questions (unsupported by the fixed
+                intent head).
+        """
         if self._published is not None:
             raise NotImplementedError(
                 "LayaAdapter is in published-numbers mode. "
