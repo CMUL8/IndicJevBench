@@ -420,8 +420,8 @@ def test_noul_label_bool_cast():
         },
     ]
     answers = [
-        {"id": "q", "type": "noul", "probabilities": [0.1, 0.9]},  # pred=True=1, label=True=1 ✓
-        {"id": "q", "type": "noul", "probabilities": [0.9, 0.1]},  # pred=False=0, label=False=0 ✓
+        {"id": "q", "type": "noul", "probabilities": [0.1, 0.9]},  # pred=True=1, label=True=1
+        {"id": "q", "type": "noul", "probabilities": [0.9, 0.1]},  # pred=False=0, label=False=0
     ]
     result = compute_all(answers, examples)
     assert result["noul"]["accuracy"] == pytest.approx(1.0)
