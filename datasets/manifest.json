@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "splits": {
+    "fintech_banking77": {
+      "n_items": 7816,
+      "langs": [
+        "bn-Beng",
+        "en-Latn",
+        "hi-Deva",
+        "kn-Knda",
+        "ml-Mlym",
+        "ta-Taml",
+        "te-Telu"
+      ],
+      "families": [
+        "intent"
+      ],
+      "licenses": [
+        "CC BY 4.0"
+      ],
+      "file": "v1/fintech_banking77.jsonl"
+    },
+    "hinglish_lid": {
+      "n_items": 3220,
+      "langs": [
+        "hi-Latn"
+      ],
+      "families": [
+        "lid"
+      ],
+      "licenses": [
+        "CC BY 4.0"
+      ],
+      "file": "v1/hinglish_lid.jsonl"
+    },
+    "intent_massive": {
+      "n_items": 57922,
+      "langs": [
+        "bn-Beng",
+        "en-Latn",
+        "hi-Deva",
+        "kn-Knda",
+        "ml-Mlym",
+        "ta-Taml",
+        "te-Telu"
+      ],
+      "families": [
+        "intent"
+      ],
+      "licenses": [
+        "CC BY 4.0"
+      ],
+      "file": "v1/intent_massive.jsonl"
+    },
+    "synthetic_enterprise": {
+      "n_items": 444,
+      "langs": [
+        "hi-Deva",
+        "hi-Latn"
+      ],
+      "families": [
+        "escalation",
+        "routing",
+        "urgency"
+      ],
+      "licenses": [
+        "CC BY 4.0"
+      ],
+      "file": "v1/synthetic_enterprise.jsonl"
+    }
+  },
+  "description": "IndicJevBench v1 — packaged from data/final/test.jsonl",
+  "frozen_date": "2026-09-22",
+  "total_items": 69402,
+  "skipped_rows": 26731
+}
