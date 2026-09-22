@@ -86,10 +86,10 @@ The API key falls back to `OPENROUTER_API_KEY` when `OPENAI_API_KEY` is unset (s
 Thin wrappers with baseline-friendly defaults live in `scripts/`:
 
 ```bash
-python scripts/eval_api.py --model openai/gpt-4o-mini --max-items 200
-python scripts/eval_qwen3.py --device cuda
-python scripts/eval_laya.py --max-items 1000
-python scripts/eval_openjev.py --device auto
+uv run python scripts/eval_api.py --model openai/gpt-4o-mini --max-items 200
+uv run python scripts/eval_qwen3.py --device cuda
+uv run python scripts/eval_laya.py --max-items 1000
+uv run python scripts/eval_openjev.py --device auto
 ```
 
 ### Package datasets first
@@ -97,7 +97,7 @@ python scripts/eval_openjev.py --device auto
 Before running, build the task JSONL files from the frozen upstream test split:
 
 ```bash
-python scripts/package_datasets.py
+uv run python scripts/package_datasets.py
 ```
 
 This reads the upstream pipeline output (`data/final/test.jsonl`, outside this repo) and writes per-task files to `datasets/v1/` plus `datasets/manifest.json`. The `datasets/v1/*.jsonl` content is **frozen** between releases — only re-run this when intentionally rebuilding the datasets.
@@ -175,7 +175,7 @@ Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated.
 ## Reproducing Results
 
 1. `uv sync --extra baselines` (plus `pip install git+https://github.com/TheoLeeCJ/openjev.git` for OpenJev).
-2. Ensure `datasets/v1/*.jsonl` are present (run `python scripts/package_datasets.py` if not).
+2. Ensure `datasets/v1/*.jsonl` are present (run `uv run python scripts/package_datasets.py` if not).
 3. Run the adapter of choice (CLI or `scripts/` wrapper). Results JSON is written to `results/v1/<run_id>.json`; raw per-task decisions stream to `results/v1/<run_id>_<task>_raw.jsonl`.
 4. Score breakdowns (by language, source, question type) are inside each results JSON under `metrics.by_lang` / `metrics.by_source`.
 

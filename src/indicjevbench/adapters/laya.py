@@ -30,10 +30,6 @@ from indicjevbench.schemas.contracts import DecisionResult, Task
 
 logger = logging.getLogger(__name__)
 
-# Laya's 60 MASSIVE intent labels in their canonical order.
-# Used to map predicted class index → option index in our question format.
-laya_intents: list[str] = []  # populated on first load from model config
-
 
 class LayaAdapter(BenchAdapter):
     """Wrap convaiinnovations/laya-multilingual as a BenchAdapter.
@@ -89,8 +85,7 @@ class LayaAdapter(BenchAdapter):
 
             # Build intent→index map from model config
             id2label = self.model.config.id2label  # {int: str}
-            global laya_intents
-            laya_intents = [id2label[i] for i in range(len(id2label))]
+            self._laya_intents: list[str] = [id2label[i] for i in range(len(id2label))]
 
         except Exception as e:
             raise RuntimeError(
@@ -143,7 +138,7 @@ class LayaAdapter(BenchAdapter):
         for opt in option_lower:
             # Find matching Laya label (exact or first partial match)
             p = 0.0
-            for j, laya_label in enumerate(laya_intents):
+            for j, laya_label in enumerate(self._laya_intents):
                 if laya_label.lower() == opt or opt in laya_label.lower():
                     p = probs_all[j]
                     break

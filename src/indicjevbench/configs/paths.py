@@ -12,11 +12,13 @@ class BenchPaths:
         bench_root: Repository/install root containing ``datasets/``.
         datasets_dir: Directory with the versioned JSONL task files.
         results_dir: Directory where run results and raw logs are written.
+        manifest_path: Path to ``datasets/manifest.json``.
     """
 
     bench_root: Path
     datasets_dir: Path
     results_dir: Path
+    manifest_path: Path
 
     @classmethod
     def default(cls) -> "BenchPaths":
@@ -44,6 +46,7 @@ class BenchPaths:
             bench_root=root,
             datasets_dir=root / "datasets" / "v1",
             results_dir=root / "results" / "v1",
+            manifest_path=root / "datasets" / "manifest.json",
         )
 
     def dataset_files(self) -> list[Path]:

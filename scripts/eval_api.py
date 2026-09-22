@@ -7,9 +7,9 @@ Install:
     pip install "indicjevbench[baselines]"
 
 Run:
-    OPENROUTER_API_KEY=sk-or-... python scripts/eval_api.py
-    OPENROUTER_API_KEY=sk-or-... python scripts/eval_api.py --model openai/gpt-4o
-    OPENROUTER_API_KEY=sk-or-... python scripts/eval_api.py --datasets fintech_banking77 --max-items 200
+    OPENROUTER_API_KEY=sk-or-... uv run python scripts/eval_api.py
+    OPENROUTER_API_KEY=sk-or-... uv run python scripts/eval_api.py --model openai/gpt-4o
+    OPENROUTER_API_KEY=sk-or-... uv run python scripts/eval_api.py --datasets fintech_banking77 --max-items 200
 """
 
 from __future__ import annotations

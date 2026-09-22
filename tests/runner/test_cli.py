@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import re
 from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
 
 from indicjevbench.adapters.base import BenchAdapter, DecisionResult
-from indicjevbench.runner.cli import build_adapter, main
+from indicjevbench.runner.cli import _default_run_id, build_adapter, main
 from indicjevbench.schemas.contracts import Task
 
 _DISPATCH_TARGETS: dict[str, str] = {
@@ -96,3 +97,10 @@ def test_top_level_help_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
         main(["--help"])
     assert exc_info.value.code == 0
     assert "run" in capsys.readouterr().out
+
+
+def test_default_run_id_format() -> None:
+    """The auto-generated run_id is ``run_YYYYMMDD_HHMMSS`` (regression: f-string
+    format-spec bug once produced literal ``run_strftime(...)`` ids)."""
+    run_id = _default_run_id()
+    assert re.fullmatch(r"run_\d{8}_\d{6}", run_id), run_id

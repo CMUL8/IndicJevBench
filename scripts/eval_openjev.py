@@ -7,9 +7,9 @@ Install:
     pip install git+https://github.com/TheoLeeCJ/openjev.git
 
 Run:
-    python scripts/eval_openjev.py
-    python scripts/eval_openjev.py --max-items 200
-    python scripts/eval_openjev.py --datasets intent_massive fintech_banking77
+    uv run python scripts/eval_openjev.py
+    uv run python scripts/eval_openjev.py --max-items 200
+    uv run python scripts/eval_openjev.py --datasets intent_massive fintech_banking77
 """
 
 from __future__ import annotations
