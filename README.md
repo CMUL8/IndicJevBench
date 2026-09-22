@@ -48,7 +48,10 @@ flowchart TD
     OUT["IndicJevScore 0–100<br/>+ results/v1/*.json"]
 
     A --> B --> C
-    G & H & I -.-> C
+    G -.-> C
+    H -.-> C
+    I -.-> C
+    G ~~~ H ~~~ I
     C -->|DecisionResult| D --> E --> F --> OUT
     D -.->|per-task JSONL| R["raw log<br/><i>inspectable mid-run</i>"]
 ```
