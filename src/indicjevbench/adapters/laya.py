@@ -17,7 +17,8 @@ import json
 import time
 from pathlib import Path
 
-from .base import BenchAdapter, DecisionResult
+from indicjevbench.adapters.base import BenchAdapter, DecisionResult
+from indicjevbench.schemas.contracts import Task
 
 # Laya's 60 MASSIVE intent labels in their canonical order.
 # Used to map predicted class index → option index in our question format.
@@ -60,7 +61,6 @@ class LayaAdapter(BenchAdapter):
                 local_files_only=local_files_only,
             )
             self.model.eval()
-            import torch
             self.model = self.model.to(device)
             self._device = device
             self._torch = torch
@@ -77,7 +77,7 @@ class LayaAdapter(BenchAdapter):
                 "to report Laya numbers labeled 'as published by convaiinnovations'."
             ) from e
 
-    def decide(self, task) -> DecisionResult:
+    def decide(self, task: Task) -> DecisionResult:
         if self._published is not None:
             raise NotImplementedError(
                 "LayaAdapter is in published-numbers mode. "
@@ -85,9 +85,9 @@ class LayaAdapter(BenchAdapter):
             )
 
         q = task.question
-        if q["type"] != "choice":
+        if q.type != "choice":
             raise NotImplementedError(
-                f"LayaAdapter only supports 'choice' questions, got '{q['type']}'. "
+                f"LayaAdapter only supports 'choice' questions, got '{q.type}'. "
                 "Laya has a fixed intent classification head and cannot answer "
                 "score or noul questions."
             )
@@ -102,7 +102,7 @@ class LayaAdapter(BenchAdapter):
             probs_all = self._torch.softmax(logits, dim=-1).cpu().tolist()
 
         # Map Laya's label order to this question's option order
-        options = q.get("options") or []
+        options = q.options or []
         option_lower = [o.lower().strip() for o in options]
         probs = []
         for opt in option_lower:

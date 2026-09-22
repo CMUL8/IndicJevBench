@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import math
+
 
 def intelligence_score(accuracy: float) -> float:
     """0-100 linear from accuracy."""

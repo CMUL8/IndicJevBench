@@ -1,24 +1,29 @@
 from __future__ import annotations
+
 import time
-from .base import BenchAdapter, DecisionResult
+
+from indicjevbench.adapters.base import BenchAdapter, DecisionResult
+from indicjevbench.schemas.contracts import Task
+
 
 class HTTPAdapter(BenchAdapter):
+    """Client for a /v1/systemone-compatible HTTP decision server."""
+
     def __init__(self, base_url: str, model: str = "my-model", timeout: float = 60.0):
         try:
             import httpx
         except ImportError:
-            raise ImportError("pip install httpx")
+            raise ImportError("HTTPAdapter requires httpx: pip install httpx")
         self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
         self._model = model
 
-    def decide(self, task) -> DecisionResult:
-        import time
+    def decide(self, task: Task) -> DecisionResult:
         q = task.question
         payload = {
             "model": self._model,
             "state": task.state,
-            "questions": [{"id": "q0", "type": q["type"], "instructions": q["instructions"],
-                           **({"options": q["options"]} if q.get("options") else {})}]
+            "questions": [{"id": "q0", "type": q.type, "instructions": q.instructions,
+                           **({"options": list(q.options)} if q.options else {})}]
         }
         t0 = time.perf_counter()
         for attempt in range(3):

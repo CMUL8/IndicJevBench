@@ -13,10 +13,8 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
-
 
 # ---------------------------------------------------------------------------
 # Individual metric functions
@@ -117,7 +115,7 @@ def automatable_share(
     paired = sorted(zip(confidences, predictions, labels), key=lambda x: x[0])
 
     # Candidate thresholds: just below each unique confidence value, plus -1 (include all)
-    unique_confs = sorted(set(c for c, _, _ in paired))
+    unique_confs = sorted({c for c, _, _ in paired})
     candidates = [-1.0] + [c - 1e-9 for c in unique_confs]
 
     best_share = 0.0
@@ -283,7 +281,7 @@ def append_to_leaderboard(
     entry = {
         "model": model_name,
         "submitted_by": submitted_by,
-        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "run_id": run_id,
         "tasks": {
             task: data.get("metrics", {})

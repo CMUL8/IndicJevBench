@@ -12,11 +12,11 @@ Usage:
 from __future__ import annotations
 
 import json
-import math
 import os
 import time
 
-from .base import BenchAdapter, DecisionResult
+from indicjevbench.adapters.base import BenchAdapter, DecisionResult
+from indicjevbench.schemas.contracts import Task
 
 _SYSTEM_PROMPT = """You are a structured decision assistant. Given a customer message and typed questions, return calibrated probability distributions.
 
@@ -67,7 +67,7 @@ class APILLMAdapter(BenchAdapter):
         rate = self._cost_per_1m.get(self._model, 5.0)
         return rate * n_tokens / 1_000_000
 
-    def decide(self, task) -> DecisionResult:
+    def decide(self, task: Task) -> DecisionResult:
         if self._spent >= self._max_budget:
             raise RuntimeError(
                 f"APILLMAdapter: budget ${self._max_budget} exhausted "
@@ -75,8 +75,8 @@ class APILLMAdapter(BenchAdapter):
             )
 
         q = task.question
-        questions = [{"id": "q0", "type": q["type"], "instructions": q["instructions"],
-                      **({"options": q["options"]} if q.get("options") else {})}]
+        questions = [{"id": "q0", "type": q.type, "instructions": q.instructions,
+                      **({"options": list(q.options)} if q.options else {})}]
         user_msg = self._build_user_message(task.state, questions)
 
         t0 = time.perf_counter()
