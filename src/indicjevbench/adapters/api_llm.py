@@ -118,13 +118,23 @@ class APILLMAdapter(BenchAdapter):
         latency_ms = (time.perf_counter() - t0) * 1000
 
         if error is not None:
-            return DecisionResult(task_id=task.id, probabilities=[], answer=-1,
-                                  confidence=0.0, latency_ms=latency_ms,
-                                  error=error)
+            return DecisionResult(
+                task_id=task.id,
+                probabilities=[],
+                answer=-1,
+                confidence=0.0,
+                latency_ms=latency_ms,
+                error=error,
+            )
         if not parsed:
-            return DecisionResult(task_id=task.id, probabilities=[], answer=-1,
-                                  confidence=0.0, latency_ms=latency_ms,
-                                  error="empty parse")
+            return DecisionResult(
+                task_id=task.id,
+                probabilities=[],
+                answer=-1,
+                confidence=0.0,
+                latency_ms=latency_ms,
+                error="empty parse",
+            )
         a = parsed[0]
         return DecisionResult(
             task_id=task.id,
@@ -144,8 +154,7 @@ class APILLMAdapter(BenchAdapter):
         """
         if self._spent >= self._max_budget:
             raise RuntimeError(
-                f"APILLMAdapter: budget ${self._max_budget} exhausted "
-                f"(spent ${self._spent:.3f})"
+                f"APILLMAdapter: budget ${self._max_budget} exhausted (spent ${self._spent:.3f})"
             )
 
     def _build_questions(self, task: Task) -> list[dict[str, Any]]:
@@ -179,7 +188,7 @@ class APILLMAdapter(BenchAdapter):
         Returns:
             The user-message string sent to the chat-completions endpoint.
         """
-        q_parts = []
+        q_parts: list[str] = []
         for q in questions:
             opts = q.get("options")
             opts_str = f"\n  Options: {opts}" if opts else ""
@@ -246,15 +255,19 @@ class APILLMAdapter(BenchAdapter):
                 return self._parse_answers(data.get("answers", []), questions), None
             except Exception as e:  # noqa: BLE001 - retry semantics: any API/parse failure
                 if attempt < _MAX_ATTEMPTS - 1:
-                    delay = 2 ** attempt
+                    delay = 2**attempt
                     logger.warning(
                         "API LLM request/parse failed (attempt %d/%d): %s; retrying in %ds",
-                        attempt + 1, _MAX_ATTEMPTS, e, delay,
+                        attempt + 1,
+                        _MAX_ATTEMPTS,
+                        e,
+                        delay,
                     )
                     time.sleep(delay)
                 else:
-                    logger.error("API LLM request/parse failed after %d attempts: %s",
-                                 _MAX_ATTEMPTS, e)
+                    logger.error(
+                        "API LLM request/parse failed after %d attempts: %s", _MAX_ATTEMPTS, e
+                    )
                     return None, str(e)
         return None, "unreachable"  # pragma: no cover - loop always returns
 
@@ -284,7 +297,7 @@ class APILLMAdapter(BenchAdapter):
             The parsed answer dicts, in input order minus skipped entries.
         """
         q_by_id = {q["id"]: q for q in questions}
-        answers = []
+        answers: list[dict[str, Any]] = []
         for item in raw:
             parsed = self._parse_one(item, q_by_id)
             if parsed is not None:
@@ -312,9 +325,7 @@ class APILLMAdapter(BenchAdapter):
             return self._parse_noul(qid, item, probs)
         return self._parse_categorical(qid, q["type"], item, probs)
 
-    def _normalise_probs(
-        self, probs: list[float], q: dict[str, Any]
-    ) -> list[float]:
+    def _normalise_probs(self, probs: list[float], q: dict[str, Any]) -> list[float]:
         """Normalise a raw probability list to sum to 1.
 
         Args:
@@ -331,9 +342,7 @@ class APILLMAdapter(BenchAdapter):
         total = sum(probs) or 1.0
         return [p / total for p in probs]
 
-    def _parse_noul(
-        self, qid: str, item: dict[str, Any], probs: list[float]
-    ) -> dict[str, Any]:
+    def _parse_noul(self, qid: str, item: dict[str, Any], probs: list[float]) -> dict[str, Any]:
         """Build the parsed answer for a ``noul`` question.
 
         Args:
@@ -349,8 +358,13 @@ class APILLMAdapter(BenchAdapter):
         if isinstance(answer, str):
             answer = answer.lower() in ("true", "yes")
         conf = abs(2 * p_true - 1)
-        return {"id": qid, "type": "noul", "probabilities": probs,
-                "answer": bool(answer), "confidence": conf}
+        return {
+            "id": qid,
+            "type": "noul",
+            "probabilities": probs,
+            "answer": bool(answer),
+            "confidence": conf,
+        }
 
     def _parse_categorical(
         self, qid: str, q_type: str, item: dict[str, Any], probs: list[float]
@@ -374,8 +388,13 @@ class APILLMAdapter(BenchAdapter):
             answer = int(answer)
         k = len(probs)
         conf = (probs[argmax] - 1 / k) / (1 - 1 / k) if k > 1 else 1.0
-        out: dict[str, Any] = {"id": qid, "type": q_type, "probabilities": probs,
-                               "answer": int(answer), "confidence": conf}
+        out: dict[str, Any] = {
+            "id": qid,
+            "type": q_type,
+            "probabilities": probs,
+            "answer": int(answer),
+            "confidence": conf,
+        }
         if q_type == "score":
             out["expected"] = sum((i + 1) * p for i, p in enumerate(probs))
         return out

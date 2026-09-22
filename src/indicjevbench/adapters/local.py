@@ -4,6 +4,12 @@ Runs inference against a locally trained Nirṇaya checkpoint via the
 ``nirnaya`` model package (private dependency; install it from the model
 project root with ``pip install -e .``).
 """
+# The optional baseline packages this adapter lazy-imports (heavyweight
+# torch/transformers, semif_phase1 from git, or the private nirnaya
+# checkpoint package) are not installed in the dev environment, so the
+# unknown-type diagnostics for their runtime objects cannot be resolved
+# here; they are relaxed for this file only, not package-wide.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
 
 from __future__ import annotations
 
@@ -68,6 +74,11 @@ class LocalAdapter(BenchAdapter):
         answers = self._infer.predict(self._model, task.state, questions, device=self._device)
         latency_ms = (time.perf_counter() - t0) * 1000
         a = answers[0]
-        return DecisionResult(task_id=task.id, probabilities=a.probabilities,
-                              answer=a.answer, confidence=a.confidence,
-                              latency_ms=latency_ms, expected=getattr(a, "expected", None))
+        return DecisionResult(
+            task_id=task.id,
+            probabilities=a.probabilities,
+            answer=a.answer,
+            confidence=a.confidence,
+            latency_ms=latency_ms,
+            expected=getattr(a, "expected", None),
+        )

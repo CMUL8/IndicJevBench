@@ -75,8 +75,7 @@ def test_decision_round_trip() -> None:
     assert payload["model"] == "m1"
     assert payload["state"] == "customer message text"
     assert payload["questions"] == [
-        {"id": "q0", "type": "choice", "instructions": "Pick one",
-         "options": ["alpha", "beta"]}
+        {"id": "q0", "type": "choice", "instructions": "Pick one", "options": ["alpha", "beta"]}
     ]
 
 
@@ -166,9 +165,12 @@ def test_optional_fields_default() -> None:
     """confidence defaults to 0.0 and usage is optional in the response."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={
-            "answers": [{"probabilities": [1.0], "answer": 0}],
-        })
+        return httpx.Response(
+            200,
+            json={
+                "answers": [{"probabilities": [1.0], "answer": 0}],
+            },
+        )
 
     adapter = HTTPAdapter(_BASE_URL, transport=httpx.MockTransport(handler))
     try:

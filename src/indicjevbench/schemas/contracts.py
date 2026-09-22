@@ -12,6 +12,7 @@ from typing import Any, Literal, cast
 def _empty_criteria() -> dict[str, Any]:
     return {}
 
+
 QuestionType = Literal["choice", "score", "noul"]
 """Supported question types."""
 
@@ -81,9 +82,7 @@ class Question:
             not isinstance(raw_options, (list, tuple))
             or not all(isinstance(o, str) for o in cast(Any, raw_options))
         ):
-            raise ValueError(
-                f"question options must be a list of str or null, got {raw_options!r}"
-            )
+            raise ValueError(f"question options must be a list of str or null, got {raw_options!r}")
         raw_criteria: Any = data.get("criteria")
         if raw_criteria is None:
             criteria: dict[str, Any] = {}
@@ -94,7 +93,10 @@ class Question:
         return cls(
             type=q_type,
             instructions=instructions,
-            options=cast(tuple[str, ...] | None, tuple(cast(Any, raw_options)) if raw_options is not None else None),
+            options=cast(
+                tuple[str, ...] | None,
+                tuple(cast(Any, raw_options)) if raw_options is not None else None,
+            ),
             criteria=criteria,
         )
 
@@ -189,16 +191,24 @@ class Task:
             ValueError: If required keys are missing, values have invalid
                 types, or validation fails.
         """
-        required = ("id", "family", "lang", "state", "question", "expected",
-                    "split", "source", "license", "provenance")
+        required = (
+            "id",
+            "family",
+            "lang",
+            "state",
+            "question",
+            "expected",
+            "split",
+            "source",
+            "license",
+            "provenance",
+        )
         missing = [k for k in required if k not in data]
         if missing:
             raise ValueError(f"task row missing required keys: {missing}")
         for name in ("id", "family", "lang", "state", "split", "source", "license"):
             if not isinstance(data[name], str) or not data[name]:
-                raise TypeError(
-                    f"task field {name!r} must be a non-empty str, got {data[name]!r}"
-                )
+                raise TypeError(f"task field {name!r} must be a non-empty str, got {data[name]!r}")
         if not isinstance(data["provenance"], dict):
             raise TypeError(
                 f"task provenance must be an object, got {type(data['provenance']).__name__}"

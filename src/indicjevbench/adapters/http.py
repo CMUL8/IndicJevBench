@@ -6,7 +6,7 @@ contract used by trained Nirṇaya-style checkpoints served over HTTP.
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from indicjevbench.adapters.base import BenchAdapter
 from indicjevbench.schemas.contracts import DecisionResult, Task
@@ -125,10 +125,11 @@ class HTTPAdapter(BenchAdapter):
             ],
         }
         body, latency_ms = self._post_with_retries(payload)
-        answers = body.get("answers")
-        if not isinstance(answers, list) or not answers:
+        answers_obj: Any = body.get("answers")
+        if not isinstance(answers_obj, list) or not answers_obj:
             raise ValueError(f"/v1/systemone response missing 'answers': {body!r}")
-        ans = answers[0]
+        answers: list[Any] = cast("list[Any]", answers_obj)
+        ans: dict[str, Any] = cast("dict[str, Any]", answers[0])
         return DecisionResult(
             task_id=task.id,
             probabilities=ans["probabilities"],
@@ -161,7 +162,10 @@ class HTTPAdapter(BenchAdapter):
                 if resp.status_code >= 500 and attempt < _MAX_ATTEMPTS - 1:
                     logger.warning(
                         "systemone returned %d (attempt %d/%d); retrying in %.1fs",
-                        resp.status_code, attempt + 1, _MAX_ATTEMPTS, _RETRY_DELAY_S,
+                        resp.status_code,
+                        attempt + 1,
+                        _MAX_ATTEMPTS,
+                        _RETRY_DELAY_S,
                     )
                     time.sleep(_RETRY_DELAY_S)
                     continue
@@ -172,7 +176,9 @@ class HTTPAdapter(BenchAdapter):
                     raise
                 logger.warning(
                     "systemone request failed (attempt %d/%d); retrying in %.1fs",
-                    attempt + 1, _MAX_ATTEMPTS, _RETRY_DELAY_S,
+                    attempt + 1,
+                    _MAX_ATTEMPTS,
+                    _RETRY_DELAY_S,
                 )
                 time.sleep(_RETRY_DELAY_S)
         latency_ms = (time.perf_counter() - t0) * 1000
@@ -183,6 +189,7 @@ class HTTPAdapter(BenchAdapter):
     def close(self) -> None:
         """Close the underlying HTTP client and release connections."""
         self._client.close()
+
     def __enter__(self) -> Self:
         return self
 

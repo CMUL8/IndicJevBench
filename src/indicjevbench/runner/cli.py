@@ -180,7 +180,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run_p = sub.add_parser("run", help="Run benchmark evaluation")
     run_p.add_argument("--tasks", nargs="+", help="JSONL task files (default: all in datasets/v1/)")
-    run_p.add_argument("--adapter", required=True, choices=["http", "local", "qwen3", "api", "semif"])
+    run_p.add_argument(
+        "--adapter", required=True, choices=["http", "local", "qwen3", "api", "semif"]
+    )
     run_p.add_argument("--endpoint", default="http://localhost:8000")
     run_p.add_argument("--checkpoint", default="checkpoints/best")
     run_p.add_argument("--model", default="my-model")

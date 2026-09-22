@@ -7,9 +7,17 @@ import importlib
 import indicjevbench
 
 _PUBLIC_API = (
-    "Task", "Question", "DecisionResult", "BenchAdapter", "BenchmarkRunner",
-    "load_tasks", "compute_all", "breakdown", "indicjev_score",
-    "BenchPaths", "get_api_key",
+    "Task",
+    "Question",
+    "DecisionResult",
+    "BenchAdapter",
+    "BenchmarkRunner",
+    "load_tasks",
+    "compute_all",
+    "breakdown",
+    "indicjev_score",
+    "BenchPaths",
+    "get_api_key",
 )
 
 

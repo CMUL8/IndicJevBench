@@ -10,6 +10,12 @@ Usage:
 Requires the ``baselines`` extra (torch, transformers):
 ``pip install 'indicjevbench[baselines]'``.
 """
+# The optional baseline packages this adapter lazy-imports (heavyweight
+# torch/transformers, semif_phase1 from git, or the private nirnaya
+# checkpoint package) are not installed in the dev environment, so the
+# unknown-type diagnostics for their runtime objects cannot be resolved
+# here; they are relaxed for this file only, not package-wide.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownLambdaType=false
 
 import logging
 import math
@@ -60,9 +66,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
                 "Install them with: pip install 'indicjevbench[baselines]'"
             ) from exc
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_id, local_files_only=local_files_only
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=local_files_only)
         self._torch = torch
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
@@ -90,7 +94,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
                 state=state,
                 instructions=question.instructions,
             )
-        opts_str = "".join(f"({i+1}) {opt}\n" for i, opt in enumerate(options))
+        opts_str = "".join(f"({i + 1}) {opt}\n" for i, opt in enumerate(options))
         return _TEMPLATE.format(
             state=state,
             instructions=question.instructions,
@@ -133,11 +137,15 @@ class Qwen3LogprobAdapter(BenchAdapter):
             log-softmax probability assigned to that token at the
             corresponding position of a single forward pass.
         """
-        prefix_ids = enc.encode(prefix, add_special_tokens=True, return_tensors="pt").to(self.device)
+        prefix_ids = enc.encode(prefix, add_special_tokens=True, return_tensors="pt").to(
+            self.device
+        )
 
         log_probs = []
         for cont in continuations:
-            cont_ids = enc.encode(cont, add_special_tokens=False, return_tensors="pt").to(self.device)
+            cont_ids = enc.encode(cont, add_special_tokens=False, return_tensors="pt").to(
+                self.device
+            )
             full_ids = torch.cat([prefix_ids, cont_ids], dim=1)
             out = self.model(full_ids)
             logits = out.logits[0]  # (seq_len, vocab)

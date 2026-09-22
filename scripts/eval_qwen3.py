@@ -11,6 +11,7 @@ Run:
     python scripts/eval_qwen3.py --device cuda
     python scripts/eval_qwen3.py --device cuda --max-items 0
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,8 +59,14 @@ def main(argv: list[str] | None = None) -> int:
     task_files = [paths.datasets_dir / f"{name}.jsonl" for name in args.datasets]
     run_id = f"qwen3_{datetime.now(UTC):%Y%m%d_%H%M%S}"
     try:
-        run_evaluation(adapter, task_files, model=args.model,
-                       max_examples=args.max_items or None, run_id=run_id, paths=paths)
+        run_evaluation(
+            adapter,
+            task_files,
+            model=args.model,
+            max_examples=args.max_items or None,
+            run_id=run_id,
+            paths=paths,
+        )
     finally:
         close_adapter(adapter)
     return 0

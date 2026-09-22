@@ -37,8 +37,7 @@ class _FakeCompletionResponse:
 class _FakeCompletions:
     """chat.completions endpoint that returns a canned JSON payload."""
 
-    def __init__(self, content: str | None, fail: bool = False,
-                 total_tokens: int = 100) -> None:
+    def __init__(self, content: str | None, fail: bool = False, total_tokens: int = 100) -> None:
         self._content = content
         self._fail = fail
         self._total_tokens = total_tokens
@@ -60,8 +59,7 @@ class _FakeChat:
 class FakeOpenAIClient:
     """Drop-in replacement for openai.OpenAI used by APILLMAdapter."""
 
-    def __init__(self, content: str | None, fail: bool = False,
-                 total_tokens: int = 100) -> None:
+    def __init__(self, content: str | None, fail: bool = False, total_tokens: int = 100) -> None:
         self._completions = _FakeCompletions(content, fail=fail, total_tokens=total_tokens)
         self.chat = _FakeChat(self._completions)
 
@@ -92,8 +90,7 @@ def _task(q_type: str = "choice", options: tuple[str, ...] | None = ("a", "b", "
     )
 
 
-_QUESTIONS = [{"id": "q0", "type": "choice", "instructions": "Decide",
-               "options": ["a", "b", "c"]}]
+_QUESTIONS = [{"id": "q0", "type": "choice", "instructions": "Decide", "options": ["a", "b", "c"]}]
 
 
 # ---------------------------------------------------------------------------
@@ -147,8 +144,7 @@ def test_choice_missing_probabilities_uniform_fallback() -> None:
 def test_score_expected_level() -> None:
     """Score questions get expected = sum((i + 1) * p_i) over normalised probs."""
     adapter = _make_adapter(FakeOpenAIClient("{}"))
-    questions = [{"id": "q0", "type": "score", "instructions": "Rate",
-                  "options": ["1", "2", "3"]}]
+    questions = [{"id": "q0", "type": "score", "instructions": "Rate", "options": ["1", "2", "3"]}]
     parsed = adapter._parse_answers(
         [{"id": "q0", "probabilities": [1.0, 2.0, 1.0]}],
         questions,
@@ -236,10 +232,13 @@ def test_multiple_answers_parsed_in_order() -> None:
 
 def test_decide_happy_path() -> None:
     """decide() parses the model JSON into a DecisionResult and tracks spend."""
-    payload = json.dumps({
-        "answers": [{"id": "q0", "type": "choice",
-                     "probabilities": [1.0, 3.0, 0.0], "answer": 1}],
-    })
+    payload = json.dumps(
+        {
+            "answers": [
+                {"id": "q0", "type": "choice", "probabilities": [1.0, 3.0, 0.0], "answer": 1}
+            ],
+        }
+    )
     client = FakeOpenAIClient(payload, total_tokens=1_000_000)
     adapter = _make_adapter(client)
 

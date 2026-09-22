@@ -329,7 +329,9 @@ def compute_all(answers: list[dict[str, Any]], examples: list[dict[str, Any]]) -
     return result
 
 
-def breakdown(answers: list[dict[str, Any]], examples: list[dict[str, Any]], dim: str) -> dict[str, Any]:
+def breakdown(
+    answers: list[dict[str, Any]], examples: list[dict[str, Any]], dim: str
+) -> dict[str, Any]:
     """Group by a dimension field and compute metrics per group.
 
     Args:
@@ -413,9 +415,7 @@ def append_to_leaderboard(
         "submitted_by": submitted_by,
         "date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "run_id": run_id,
-        "tasks": {
-            task: data.get("metrics", {}) for task, data in results.get("tasks", {}).items()
-        },
+        "tasks": {task: data.get("metrics", {}) for task, data in results.get("tasks", {}).items()},
         "notes": notes,
     }
     board["entries"].append(entry)

@@ -11,6 +11,7 @@ Run:
     python scripts/eval_openjev.py --max-items 200
     python scripts/eval_openjev.py --datasets intent_massive fintech_banking77
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,14 +56,21 @@ def main(argv: list[str] | None = None) -> int:
 
     from indicjevbench.adapters.semif import SemIfAdapter  # lazy: semif_phase1
 
-    adapter = SemIfAdapter(model_id=args.model, device=args.device, dtype=args.dtype,
-                           max_tokens=args.max_tokens)
+    adapter = SemIfAdapter(
+        model_id=args.model, device=args.device, dtype=args.dtype, max_tokens=args.max_tokens
+    )
     paths = BenchPaths.default()
     task_files = [paths.datasets_dir / f"{name}.jsonl" for name in args.datasets]
     run_id = f"openjev_{datetime.now(UTC):%Y%m%d_%H%M%S}"
     try:
-        run_evaluation(adapter, task_files, model=args.model,
-                       max_examples=args.max_items or None, run_id=run_id, paths=paths)
+        run_evaluation(
+            adapter,
+            task_files,
+            model=args.model,
+            max_examples=args.max_items or None,
+            run_id=run_id,
+            paths=paths,
+        )
     finally:
         close_adapter(adapter)
     return 0

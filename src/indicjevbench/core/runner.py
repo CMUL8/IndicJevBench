@@ -82,8 +82,12 @@ class BenchmarkRunner:
             except Exception as e:  # noqa: BLE001 — per-task fault isolation is intentional
                 self._logger.warning("task %s failed: %s", task.id, e)
                 result = DecisionResult(
-                    task_id=task.id, probabilities=[], answer=-1,
-                    confidence=0.0, latency_ms=0.0, error=str(e),
+                    task_id=task.id,
+                    probabilities=[],
+                    answer=-1,
+                    confidence=0.0,
+                    latency_ms=0.0,
+                    error=str(e),
                 )
             latencies.append(result.latency_ms)
 
@@ -101,21 +105,24 @@ class BenchmarkRunner:
         for result, task in results_raw:
             if result.error or not result.probabilities:
                 continue
-            answers.append({
-                "id": "q0",
-                "type": task.q_type,
-                "probabilities": result.probabilities,
-                "answer": result.answer,
-                "confidence": result.confidence,
-                **({"expected": result.expected} if result.expected is not None else {}),
-            })
-            examples.append({
-                "id": task.id,
-                "lang": task.lang,
-                "source": task.source,
-                "questions": [{"qid": "q0", "type": task.q_type,
-                               "label": task.expected}],
-            })
+            answers.append(
+                {
+                    "id": "q0",
+                    "type": task.q_type,
+                    "probabilities": result.probabilities,
+                    "answer": result.answer,
+                    "confidence": result.confidence,
+                    **({"expected": result.expected} if result.expected is not None else {}),
+                }
+            )
+            examples.append(
+                {
+                    "id": task.id,
+                    "lang": task.lang,
+                    "source": task.source,
+                    "questions": [{"qid": "q0", "type": task.q_type, "label": task.expected}],
+                }
+            )
 
         metrics = compute_all(answers, examples)
         metrics["by_lang"] = breakdown(answers, examples, "lang")
