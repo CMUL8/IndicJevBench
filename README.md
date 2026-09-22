@@ -112,11 +112,14 @@ Exact counts depend on `scripts/package_datasets.py` output after the data pipel
 
 Live at [cmul8-hf/IndicJevBench](https://huggingface.co/datasets/cmul8-hf/IndicJevBench). Measured on 1000 items per dataset (2026-09-22).
 
-| Model | fintech_banking77 | synthetic_enterprise | intent_massive | hinglish_lid |
-|-------|-------------------|----------------------|----------------|--------------|
-| OpenJev (Qwen3.5-4B) | acc=0.620, IJScore=78.3 | acc=0.606, IJScore=79.6 | N/A (exceeds 16-option limit) | acc=0.998, IJScore=87.2 |
+| Model | Type | fintech_banking77 | synthetic_enterprise | intent_massive | hinglish_lid |
+|-------|------|-------------------|----------------------|----------------|--------------|
+| OpenJev (Qwen3.5-4B) | local | acc=0.620, IJScore=78.3 | acc=0.606, IJScore=79.6 | N/A (>16-option limit) | acc=0.998, IJScore=87.2 |
+| Qwen3-4B (zero-shot logprob) | local | acc=0.373, IJScore=55.3 | acc=0.525, IJScore=68.5 | acc=0.316, IJScore=49.6 | acc=0.840, IJScore=2.3† |
 
-Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated. hinglish_lid is near-trivial for all LLMs. The meaningful signal is in fintech_banking77 and synthetic_enterprise.
+† Qwen3-4B logprob scoring takes ~16s/item on hinglish_lid (one forward pass per option × many language classes), collapsing the speed axis.
+
+Notes: OpenJev has a hard 16-option limit so intent_massive cannot be evaluated. The meaningful signal for general models is in fintech_banking77, intent_massive, and synthetic_enterprise.
 
 ---
 
