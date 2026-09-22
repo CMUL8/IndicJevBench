@@ -25,6 +25,8 @@ src/indicjevbench/
 ├── core/
 │   ├── dataset.py        # load_tasks(path, max_examples=None) -> list[Task];
 │                         #   load_manifest(path) -> dict
+│   ├── packaging.py      # DatasetPackager — raw pipeline JSONL -> v1 files
+│                         #   + manifest (used by scripts/package_datasets.py)
 │   └── runner.py         # BenchmarkRunner(adapter, raw_log_path, task_name,
 │                         #   logger); run(tasks) -> results dict;
 │                         #   percentile(values, p) helper
@@ -55,6 +57,53 @@ src/indicjevbench/
 adapters are imported lazily (by the CLI's `build_adapter`) so that importing
 `indicjevbench` never pulls torch/transformers/openai/semif/nirnaya.
 
+## Module Graph
+
+Dependency direction is one-way: entrypoints → core → adapters/schemas →
+utils. Nothing below `core` imports upward.
+
+```mermaid
+flowchart TD
+    subgraph entry["Entrypoints"]
+        CLI["runner/cli.py<br/><i>argparse · build_adapter · run_evaluation</i>"]
+        SCR["scripts/*.py<br/><i>thin wrappers only</i>"]
+    end
+
+    subgraph core["Core"]
+        RUN["core/runner.py<br/><i>BenchmarkRunner</i>"]
+        DS["core/dataset.py<br/><i>load_tasks · load_manifest</i>"]
+        PKG["core/packaging.py<br/><i>DatasetPackager</i>"]
+    end
+
+    subgraph domain["Domain"]
+        ADP["adapters/*<br/><i>BenchAdapter + 7 backends</i>"]
+        SCH["schemas/contracts.py<br/><i>Task · Question · DecisionResult</i>"]
+        MET["metrics.py<br/><i>pure metric functions</i>"]
+        SCO["scoring.py<br/><i>pure axis + composite</i>"]
+    end
+
+    subgraph infra["Infra"]
+        CFG["configs/*<br/><i>BenchPaths · get_api_key</i>"]
+        UTI["utils/*<br/><i>logging · atomic writes</i>"]
+    end
+
+    CLI --> RUN & DS
+    SCR --> RUN & DS & PKG
+    RUN --> ADP & SCH & MET & SCO & UTI
+    DS --> SCH
+    PKG --> SCH
+    MET --> SCH
+    CLI --> CFG & UTI
+
+    style SCH fill:#fff8c5,stroke:#9a6700
+    style ADP fill:#ddf4ff,stroke:#0969da
+    style MET fill:#dafbe1,stroke:#1a7f37
+    style SCO fill:#dafbe1,stroke:#1a7f37
+```
+
+Green = pure functions (no I/O, deterministic). Yellow = frozen contracts.
+Blue = pluggable backends (heavy deps lazy).
+
 ## Data Flow
 
 ```
@@ -79,6 +128,40 @@ data/final/test.jsonl                 (upstream pipeline, outside this repo)
   → runner/cli.py aggregates per-task results
   → atomic_write_text → results/v1/<run_id>.json
 ```
+
+## Per-Task Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as CLI (run_evaluation)
+    participant R as BenchmarkRunner
+    participant A as BenchAdapter
+    participant M as Model backend
+    participant L as Raw log (JSONL)
+    participant F as Results JSON
+
+    U->>R: run(tasks)
+    loop every Task (fault-isolated)
+        R->>A: decide(task)
+        A->>M: state + typed question
+        M-->>A: probabilities / answer / confidence
+        A-->>R: DecisionResult
+        alt adapter raised
+            R->>R: catch → DecisionResult(answer=-1, error=...)
+        end
+        R->>L: atomic_append_line(AnswerRecord)
+    end
+    R->>R: compute_all + breakdown(lang, source)
+    R->>R: percentile(latencies, 50 / 95)
+    R->>R: indicjev_score(acc, ece, brier, p50)
+    R-->>U: results dict
+    U->>F: atomic_write_text(aggregate)
+```
+
+Note the ordering guarantee: every decision is flushed to the raw log
+*before* the next task starts, so a killed run still leaves a complete,
+inspectable record of everything that finished.
 
 ## Extension Points
 

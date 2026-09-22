@@ -21,6 +21,42 @@ IndicJevBench makes this gap visible and measurable with a single number: the **
 
 ---
 
+## How It Works
+
+A benchmark run is a straight pipeline — every stage is a typed, testable unit:
+
+```mermaid
+flowchart LR
+    subgraph data["📦 Data (frozen)"]
+        A["datasets/v1/*.jsonl<br/><i>69,402 items · CC BY 4.0</i>"]
+    end
+
+    subgraph harness["⚙️ indicjevbench package"]
+        B["load_tasks()<br/><i>validate → list[Task]</i>"]
+        C{"BenchAdapter<br/><i>decide(task)</i>"}
+        D["BenchmarkRunner<br/><i>fault isolation + raw log</i>"]
+        E["metrics.py<br/><i>acc · F1 · NLL · Brier · ECE</i>"]
+        F["scoring.py<br/><i>4-axis composite</i>"]
+    end
+
+    subgraph backends["🔌 Backends"]
+        G["/v1/systemone<br/>HTTP endpoint"]
+        H["Qwen3 · SemIf · Laya<br/>local HF models"]
+        I["API LLM<br/>OpenAI-compatible"]
+    end
+
+    OUT["IndicJevScore 0–100<br/>+ results/v1/*.json"]
+
+    A --> B --> C
+    G & H & I -.-> C
+    C -->|DecisionResult| D --> E --> F --> OUT
+    D -.->|per-task JSONL| R["raw log<br/><i>inspectable mid-run</i>"]
+```
+
+One `Task` = a customer message (`state`) + one typed question (`choice`,
+`score`, or `noul`) + a gold label. The adapter returns a probability
+distribution; the harness measures how good *and* how calibrated it is.
+
 ## Quick Start
 
 Requires Python >= 3.12 and [uv](https://docs.astral.sh/uv/).
@@ -116,6 +152,21 @@ IndicJevBench reports a composite **IndicJevScore** (0–100) as a weighted geom
 | Cost | 20% | log-scale, $0.01/1k=100, $10/1k=0; local=100 | 100 (free/local) | 0 ($10+/1k) |
 
 Composite = exp(0.35·ln(intelligence) + 0.25·ln(calibration) + 0.20·ln(speed) + 0.20·ln(cost)); each axis is clipped to [1e-6, 100] before the log so a zero axis drives the composite toward 0. Implemented in `src/indicjevbench/scoring.py`.
+
+```mermaid
+flowchart TB
+    ACC["🧠 Intelligence<br/>accuracy × 100"] -->|"w = 0.35"| GM{{"⨂ Weighted geometric mean"}}
+    CAL["🎯 Calibration<br/>mean(1−ECE, 1−Brier/2) × 100"] -->|"w = 0.25"| GM
+    SPD["⚡ Speed<br/>log-scale · 50ms → 100 · 5s → 0"] -->|"w = 0.20"| GM
+    CST["💰 Cost<br/>log-scale · $0.01/1k → 100 · $10/1k → 0"] -->|"w = 0.20"| GM
+    GM --> IJS["IndicJevScore<br/><b>0–100</b>"]
+
+    style IJS fill:#1a7f37,stroke:#116329,color:#fff
+    style GM fill:#0969da,stroke:#0550ae,color:#fff
+```
+
+A model can win an axis and still lose the composite — an accurate but
+overconfident model, or a fast but wrong one, scores poorly.
 
 ### Per-task metrics
 
