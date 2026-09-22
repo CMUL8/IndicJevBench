@@ -28,8 +28,11 @@ def load_tasks(path: str | Path, max_examples: int | None = None) -> list[Task]:
         ValueError: If a line is not valid JSON or fails Task validation.
         TypeError: If ``max_examples`` is not a positive int or None.
     """
-    if max_examples is not None and max_examples <= 0:
-        raise ValueError(f"max_examples must be a positive int or None, got {max_examples!r}")
+    if max_examples is not None:
+        if type(max_examples) is not int:
+            raise TypeError(f"max_examples must be a positive int or None, got {max_examples!r}")
+        if max_examples <= 0:
+            raise ValueError(f"max_examples must be a positive int or None, got {max_examples!r}")
 
     path = Path(path)
     tasks: list[Task] = []

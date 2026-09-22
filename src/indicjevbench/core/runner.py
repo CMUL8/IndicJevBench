@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from tqdm import tqdm
 
@@ -117,19 +117,19 @@ class BenchmarkRunner:
                                "label": task.expected}],
             })
 
-        metrics = cast(dict[str, Any], compute_all(answers, examples))
+        metrics = compute_all(answers, examples)
         metrics["by_lang"] = breakdown(answers, examples, "lang")
         metrics["by_source"] = breakdown(answers, examples, "source")
 
         p50 = percentile(latencies, 50)
         p95 = percentile(latencies, 95)
         overall: dict[str, Any] = metrics.get("all", {})
-        score = cast(dict[str, Any], indicjev_score(
+        score = indicjev_score(
             accuracy=overall.get("accuracy", 0.0),
             ece=overall.get("ece", 0.5),
             brier=overall.get("brier", 1.0),
             p50_ms=p50,
-        ))
+        )
 
         return {
             "n_tasks": len(tasks),

@@ -1,49 +1,85 @@
 """Metric computations for IndicJevBench.
 
 All functions are pure (no I/O). They take Python lists and return dicts.
-Importable by runner.py, tests, and notebook analysis.
+Importable by the benchmark runner, tests, and notebook analysis.
 
 Confidence formulas
 -------------------
 choice/score : (p_max - 1/K) / (1 - 1/K)   — normalised margin above chance
-noul         : |2*p_true - 1|               — distance from the 0.5 decision boundary
-"""
+noul         : |2*p_true - 1|              — distance from the 0.5 decision boundary
 
-from __future__ import annotations
+Calibration
+-----------
+Expected Calibration Error (ECE) uses equal-width bins of max-class
+confidence with a 15-bin default, matching standard practice for
+K-class calibration reports.
+
+The composite benchmark score (see ``indicjevbench.scoring``) combines
+accuracy, calibration, speed, and cost with weights 0.35/0.25/0.20/0.20.
+"""
 
 import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 # ---------------------------------------------------------------------------
 # Individual metric functions
 # ---------------------------------------------------------------------------
 
+
 def accuracy(predictions: list[int], labels: list[int]) -> float:
+    """Fraction of predictions equal to their labels.
+
+    Args:
+        predictions: Predicted class indices (bool allowed for noul).
+        labels: Gold class indices, aligned with ``predictions``.
+
+    Returns:
+        Accuracy in ``[0, 1]``, or NaN when ``predictions`` is empty.
+    """
     if not predictions:
         return float("nan")
     return sum(p == l for p, l in zip(predictions, labels)) / len(predictions)
 
 
 def macro_f1(predictions: list[int], labels: list[int]) -> float:
-    """Sklearn-style macro F1: unweighted mean of per-class F1."""
+    """Sklearn-style macro F1: unweighted mean of per-class F1.
+
+    Args:
+        predictions: Predicted class indices.
+        labels: Gold class indices, aligned with ``predictions``.
+
+    Returns:
+        Macro F1 in ``[0, 1]``, or NaN when ``predictions`` is empty.
+    """
     if not predictions:
         return float("nan")
     classes = sorted(set(labels) | set(predictions))
-    f1s = []
+    f1s: list[float] = []
     for c in classes:
         tp = sum(p == c and l == c for p, l in zip(predictions, labels))
         fp = sum(p == c and l != c for p, l in zip(predictions, labels))
         fn = sum(p != c and l == c for p, l in zip(predictions, labels))
         prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        rec  = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1s.append(2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0)
     return sum(f1s) / len(f1s)
 
 
 def nll(probs_list: list[list[float]], labels: list[int]) -> float:
-    """Mean negative log-likelihood. Clips P to 1e-7 to avoid log(0)."""
+    """Mean negative log-likelihood of the true label under each distribution.
+
+    Args:
+        probs_list: One probability distribution per example.
+        labels: Gold class indices, aligned with ``probs_list``.
+
+    Returns:
+        Mean NLL, or NaN when ``probs_list`` is empty. Probabilities are
+        clipped to ``1e-7`` so a zero probability on the gold label yields a
+        finite penalty instead of ``inf``.
+    """
     if not probs_list:
         return float("nan")
     total = 0.0
@@ -54,7 +90,16 @@ def nll(probs_list: list[list[float]], labels: list[int]) -> float:
 
 
 def brier(probs_list: list[list[float]], labels: list[int]) -> float:
-    """Mean squared error of full distribution vs one-hot true label."""
+    """Mean squared error of each full distribution vs the one-hot true label.
+
+    Args:
+        probs_list: One probability distribution per example.
+        labels: Gold class indices, aligned with ``probs_list``.
+
+    Returns:
+        Mean Brier score (lower is better; 0 is perfect), or NaN when
+        ``probs_list`` is empty.
+    """
     if not probs_list:
         return float("nan")
     total = 0.0
@@ -68,8 +113,17 @@ def brier(probs_list: list[list[float]], labels: list[int]) -> float:
 def ece(probs_list: list[list[float]], labels: list[int], n_bins: int = 15) -> float:
     """Expected Calibration Error over equal-width bins of max-class confidence.
 
-    ECE = sum_b (|B_b| / N) * |acc(B_b) - conf(B_b)|
-    For noul, p_max = max(p_true, 1-p_true). Predictions are correct when argmax==label.
+    ECE = sum_b (|B_b| / N) * |acc(B_b) - conf(B_b)|. For noul, the reported
+    ``p_max`` is max(p_true, 1-p_true). Predictions are correct when
+    ``argmax(probs) == label``.
+
+    Args:
+        probs_list: One probability distribution per example.
+        labels: Gold class indices, aligned with ``probs_list``.
+        n_bins: Number of equal-width confidence bins (default 15).
+
+    Returns:
+        ECE in ``[0, 1]``, or NaN when ``probs_list`` is empty.
     """
     if not probs_list:
         return float("nan")
@@ -91,7 +145,16 @@ def ece(probs_list: list[list[float]], labels: list[int], n_bins: int = 15) -> f
 
 
 def mae_expected_level(expected_levels: list[float], labels: list[int]) -> float:
-    """Mean |predicted_mean_level - true_level| for score questions (1-indexed)."""
+    """Mean |predicted_mean_level - true_level| for score questions (1-indexed).
+
+    Args:
+        expected_levels: Predicted mean levels (1-indexed), one per example.
+        labels: Gold option indices (0-indexed), aligned with
+            ``expected_levels``.
+
+    Returns:
+        Mean absolute level error, or NaN when ``expected_levels`` is empty.
+    """
     if not expected_levels:
         return float("nan")
     return sum(abs(e - (l + 1)) for e, l in zip(expected_levels, labels)) / len(expected_levels)
@@ -103,11 +166,25 @@ def automatable_share(
     labels: list[int],
     max_error_rate: float = 0.05,
 ) -> tuple[float, float]:
-    """Return (share, threshold) where threshold is the highest T such that
-    items with confidence > T have error_rate <= max_error_rate.
+    """Largest share of items automatable under an error-rate cap.
 
-    Binary search over sorted confidence values. Returns (0.0, 1.0) if no
-    threshold achieves the target error rate.
+    The threshold is the highest ``T`` such that items with
+    ``confidence > T`` have ``error_rate <= max_error_rate``. A linear scan
+    over candidate thresholds (just below each unique confidence, plus an
+    include-all candidate) replaces an explicit binary search but keeps the
+    same result.
+
+    Args:
+        confidences: Calibrated confidence per item.
+        predictions: Predicted class indices, aligned with ``confidences``.
+        labels: Gold class indices, aligned with ``confidences``.
+        max_error_rate: Maximum tolerable error rate above the threshold.
+
+    Returns:
+        ``(share, threshold)`` where ``share`` is the fraction of all items
+        above the threshold and ``threshold`` is the chosen confidence cut.
+        Returns ``(NaN, NaN)`` when ``confidences`` is empty and
+        ``(0.0, 1.0)`` when no threshold meets the error cap.
     """
     if not confidences:
         return (float("nan"), float("nan"))
@@ -139,7 +216,9 @@ def automatable_share(
 # Confidence helpers
 # ---------------------------------------------------------------------------
 
+
 def _confidence_choice_score(probs: list[float]) -> float:
+    """Normalised margin above the uniform-chance probability for K options."""
     k = len(probs)
     p_max = max(probs)
     if k <= 1:
@@ -148,6 +227,7 @@ def _confidence_choice_score(probs: list[float]) -> float:
 
 
 def _confidence_noul(p_true: float) -> float:
+    """Distance of ``p_true`` from the 0.5 decision boundary, in ``[0, 1]``."""
     return abs(2 * p_true - 1)
 
 
@@ -155,18 +235,34 @@ def _confidence_noul(p_true: float) -> float:
 # Core aggregation
 # ---------------------------------------------------------------------------
 
-def compute_all(answers: list[dict], examples: list[dict]) -> dict:
+
+def compute_all(answers: list[dict[str, Any]], examples: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute all metrics for a list of (answer, example) pairs.
 
-    answers  : list of answer dicts from the API/local adapter, each containing
-               {"id", "type", "probabilities", ...}
-    examples : list of example dicts from data.jsonl, matching answers 1-to-1.
+    ``answers`` are adapter answer dicts, each containing at least
+    ``{"id", "type", "probabilities"}`` plus an optional ``expected`` mean
+    level for score questions. ``examples`` are dataset example dicts, each
+    with ``{"id", "lang", "source", "questions": [{"qid", "type", "label"}]}``.
+    The two lists must be aligned 1-to-1.
 
-    Returns nested dict: {"choice": {...}, "score": {...}, "noul": {...}, "all": {...}}
-    Each sub-dict has keys: accuracy, macro_f1, nll, brier, ece,
-    plus mae_expected_level (score only), automatable_share, automatable_threshold.
+    Confidence per item uses the formulas documented in the module docstring:
+    choice/score take the normalised argmax margin; noul takes
+    ``|2*p_true - 1|`` with ``p_true = probs[1]``.
+
+    Args:
+        answers: List of answer dicts from an adapter.
+        examples: List of example dicts from the dataset, aligned with
+            ``answers``.
+
+    Returns:
+        Nested dict ``{"choice": {...}, "score": {...}, "noul": {...},
+        "all": {...}}`` with one entry per question type present. Each
+        sub-dict has keys ``n``, ``accuracy``, ``macro_f1``, ``nll``,
+        ``brier``, ``ece``, ``automatable_share``, ``automatable_threshold``,
+        plus ``mae_expected_level`` for score items only. The ``all`` entry
+        pools every answered item.
     """
-    by_type: dict[str, list] = {"choice": [], "score": [], "noul": []}
+    by_type: dict[str, list[Any]] = {"choice": [], "score": [], "noul": []}
 
     for ans, ex in zip(answers, examples):
         q_type = ans["type"]
@@ -191,13 +287,13 @@ def compute_all(answers: list[dict], examples: list[dict]) -> dict:
         expected = ans.get("expected")  # only present for score
         by_type[q_type].append((probs, label, pred, conf, expected))
 
-    result = {}
-    all_items = []
+    result: dict[str, Any] = {}
+    all_items: list[Any] = []
     for q_type, items in by_type.items():
         if not items:
             continue
         probs_l, labels, preds, confs, expecteds = zip(*items)
-        m = {
+        m: dict[str, Any] = {
             "n": len(items),
             "accuracy": accuracy(list(preds), list(labels)),
             "macro_f1": macro_f1(list(preds), list(labels)),
@@ -233,13 +329,19 @@ def compute_all(answers: list[dict], examples: list[dict]) -> dict:
     return result
 
 
-def breakdown(answers: list[dict], examples: list[dict], dim: str) -> dict:
+def breakdown(answers: list[dict[str, Any]], examples: list[dict[str, Any]], dim: str) -> dict[str, Any]:
     """Group by a dimension field and compute metrics per group.
 
-    dim: "lang" | "source" | "type" (question type)
-    Returns {group_key: metrics_dict}.
+    Args:
+        answers: List of answer dicts (see :func:`compute_all`).
+        examples: List of example dicts aligned with ``answers``.
+        dim: Grouping dimension — ``"lang"``, ``"source"``, or ``"type"``
+            (question type). Missing values fall back to ``"unknown"``.
+
+    Returns:
+        Mapping of group key to the :func:`compute_all` result for that group.
     """
-    groups: dict[str, tuple[list, list]] = {}
+    groups: dict[str, tuple[list[Any], list[Any]]] = {}
     for ans, ex in zip(answers, examples):
         if dim == "type":
             key = ans["type"]
@@ -253,10 +355,20 @@ def breakdown(answers: list[dict], examples: list[dict], dim: str) -> dict:
     return {k: compute_all(a, e) for k, (a, e) in groups.items()}
 
 
-def _get_label(qid: str, example: dict) -> int | bool | None:
+def _get_label(qid: str, example: dict[str, Any]) -> int | bool | None:
+    """Return the gold label for question ``qid`` in an example, if present.
+
+    Args:
+        qid: Question identifier to look up.
+        example: Example dict with a ``questions`` list of
+            ``{"qid", "type", "label"}`` mappings.
+
+    Returns:
+        The label (int or bool), or ``None`` when no question matches.
+    """
     for q in example.get("questions", []):
         if q.get("qid") == qid:
-            return q.get("label")
+            return cast(int | bool | None, q.get("label"))
     return None
 
 
@@ -264,15 +376,33 @@ def _get_label(qid: str, example: dict) -> int | bool | None:
 # Leaderboard helper
 # ---------------------------------------------------------------------------
 
+
 def append_to_leaderboard(
-    results: dict,
+    results: dict[str, Any],
     leaderboard_path: Path,
     model_name: str,
     submitted_by: str,
     run_id: str,
     notes: str = "",
 ) -> None:
-    """Append a results entry to leaderboard.json, writing atomically."""
+    """Append a results entry to ``leaderboard.json``, writing atomically.
+
+    Creates the leaderboard file with ``schema_version: 1`` when absent.
+
+    Args:
+        results: Run results dict with a ``tasks`` mapping of task name to
+            ``{"metrics": {...}}`` data.
+        leaderboard_path: Destination leaderboard JSON path.
+        model_name: Display name of the evaluated model.
+        submitted_by: Submitter identifier.
+        run_id: Unique run identifier for provenance.
+        notes: Free-form notes attached to the entry.
+
+    Raises:
+        OSError: If the leaderboard cannot be read or written.
+        ValueError: If an existing leaderboard file is not valid JSON.
+    """
+    board: dict[str, Any]
     if leaderboard_path.exists():
         board = json.loads(leaderboard_path.read_text(encoding="utf-8"))
     else:
@@ -284,8 +414,7 @@ def append_to_leaderboard(
         "date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "run_id": run_id,
         "tasks": {
-            task: data.get("metrics", {})
-            for task, data in results.get("tasks", {}).items()
+            task: data.get("metrics", {}) for task, data in results.get("tasks", {}).items()
         },
         "notes": notes,
     }

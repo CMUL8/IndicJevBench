@@ -30,7 +30,8 @@ class Question:
 
     Raises:
         TypeError: If a field has the wrong type.
-        ValueError: If ``type`` is unknown or ``instructions`` is empty.
+        ValueError: If ``type`` is unknown, ``instructions`` is empty, or
+            ``options`` are missing (choice/score) or present (noul).
     """
 
     type: QuestionType
@@ -47,6 +48,10 @@ class Question:
             )
         if not self.instructions.strip():
             raise ValueError("question instructions must be a non-empty str")
+        if self.type in ("choice", "score") and not self.options:
+            raise ValueError(f"question type {self.type!r} requires non-empty options")
+        if self.type == "noul" and self.options is not None:
+            raise ValueError("question type 'noul' must not carry options")
         if self.options is not None:
             # JSON rows carry lists; normalise to the declared tuple type.
             object.__setattr__(self, "options", tuple(self.options))
@@ -112,7 +117,8 @@ class Task:
 
     Raises:
         TypeError: If a field has the wrong type.
-        ValueError: If required string fields are empty or question is invalid.
+        ValueError: If required string fields are empty, the question is
+            invalid, or ``expected`` is an int outside the valid label range.
     """
 
     id: str
@@ -133,6 +139,31 @@ class Task:
             value = getattr(self, name)
             if not value:
                 raise ValueError(f"task field {name!r} must be a non-empty str, got {value!r}")
+        self._validate_expected()
+
+    def _validate_expected(self) -> None:
+        """Check that an int ``expected`` lies inside the label range.
+
+        Choice/score questions take a gold option index in
+        ``[0, len(options))``; noul questions take ``0`` or ``1``. Non-int
+        expected values (rare legacy rows) are left untouched.
+
+        Raises:
+            ValueError: If ``expected`` is an int outside the valid range.
+        """
+        expected = self.expected
+        if not isinstance(expected, int) or isinstance(expected, bool):
+            return
+        if self.question.type == "noul":
+            if expected not in (0, 1):
+                raise ValueError(
+                    f"noul expected must be 0 or 1, got {expected!r} (task {self.id!r})"
+                )
+        elif self.question.options is not None and not 0 <= expected < len(self.question.options):
+            raise ValueError(
+                f"expected index {expected} out of range for "
+                f"{len(self.question.options)} options (task {self.id!r})"
+            )
 
     @property
     def q_type(self) -> str:
