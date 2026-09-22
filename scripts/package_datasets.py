@@ -1,38 +1,47 @@
-"""package_datasets.py — explode data/final/test.jsonl into IndicJevBench JSONL files.
+"""Package raw pipeline output into IndicJevBench ``datasets/v1`` JSONL files.
 
-Reads ../../data/final/test.jsonl (relative to bench/indicjevbench/), produces
-one JSONL file per task family in datasets/v1/, and writes datasets/manifest.json.
+Reads ``<repo>/../../data/final/test.jsonl`` (produced by the upstream data
+pipeline, outside this repo), explodes it into one JSONL file per task
+family under ``datasets/v1/``, and writes ``datasets/manifest.json``.
 
-Each output item has the IndicJevBench item format:
-{
-  "id": "<source>-<lang>-<zero-padded-index>-q<qidx>",
-  "family": "<family>",
-  "lang": "<lang>",
-  "state": "<customer message>",
-  "question": {"type": ..., "instructions": ..., "options": [...], "criteria": {}},
-  "expected": <int or bool>,
-  "split": "v1",
-  "source": "<source>",
-  "license": "<license>",
-  "provenance": {"origin": "<source>", "license": "<license>", "notes": "..."}
-}
+This is a data-packaging entrypoint only — it contains no evaluation,
+metric, or leaderboard logic (all of which live in the indicjevbench
+package). It intentionally overwrites ``datasets/v1/*.jsonl`` when run;
+those files are FROZEN between releases, so only run this when rebuilding
+the datasets from the upstream pipeline.
+
+Output item format::
+
+    {"id": ..., "family": ..., "lang": ..., "state": ...,
+     "question": {"type": ..., "instructions": ..., "options": [...], "criteria": {}},
+     "expected": <int or bool>, "split": "v1", "source": ..., "license": ...,
+     "provenance": {"origin": ..., "license": ..., "notes": ...}}
+
+Run:
+    python scripts/package_datasets.py
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-# Locate paths relative to this script
-BENCH_ROOT = Path(__file__).parent.parent
+from indicjevbench.utils.logging import configure_logging, get_logger
+
+logger = get_logger(__name__)
+
+BENCH_ROOT = Path(__file__).resolve().parent.parent
 DATA_FINAL = BENCH_ROOT.parent.parent / "data" / "final" / "test.jsonl"
 DATASETS_DIR = BENCH_ROOT / "datasets" / "v1"
 MANIFEST_PATH = BENCH_ROOT / "datasets" / "manifest.json"
 
-# License map per source
-_LICENSE = {
+# License map per source (only sources permitted for redistribution in v1)
+_LICENSE: dict[str, str] = {
     "massive": "CC BY 4.0",
     "banking77": "CC BY 4.0",
     "banking77+mt": "CC BY 4.0",
@@ -40,7 +49,7 @@ _LICENSE = {
     "synthetic": "CC BY 4.0",
 }
 
-_PROVENANCE_NOTES = {
+_PROVENANCE_NOTES: dict[str, str] = {
     "massive": "MASSIVE official test split",
     "banking77": "Banking77 translated to Indic via NLLB-200",
     "banking77+mt": "Banking77 translated to Indic via NLLB-200",
@@ -50,9 +59,8 @@ _PROVENANCE_NOTES = {
 
 
 def _family_for(source: str, task_field: str | None = None) -> str:
-    if source == "massive":
-        return "intent"
-    if source in ("banking77", "banking77+mt"):
+    """Map a source (and optional task name) to a task family."""
+    if source in ("massive", "banking77", "banking77+mt"):
         return "intent"
     if source == "comilingua":
         return "lid"
@@ -63,43 +71,110 @@ def _family_for(source: str, task_field: str | None = None) -> str:
                 return "urgency"
             if "noul" in tf or "escalat" in tf:
                 return "escalation"
-            if "intent" in tf or "routing" in tf:
-                return "routing"
         return "routing"
     return "unknown"
 
 
 def _dataset_name_for(source: str, family: str) -> str:
-    if source == "massive":
-        return "intent_massive"
-    if source in ("banking77", "banking77+mt"):
-        return "fintech_banking77"
-    if source == "comilingua":
-        return "hinglish_lid"
-    if source == "synthetic":
-        return "synthetic_enterprise"
-    return f"{source}_{family}"
+    """Map a source/family pair to its packaged dataset file stem."""
+    names = {
+        "massive": "intent_massive",
+        "banking77": "fintech_banking77",
+        "banking77+mt": "fintech_banking77",
+        "comilingua": "hinglish_lid",
+        "synthetic": "synthetic_enterprise",
+    }
+    return names.get(source, f"{source}_{family}")
 
 
 def _make_id(source: str, lang: str, row_idx: int, q_idx: int) -> str:
+    """Build the canonical IndicJevBench item id."""
     src = source.replace("+", "").replace(" ", "_")
     return f"{src}-{lang}-{row_idx:04d}-q{q_idx}"
 
 
-def main() -> None:
-    if not DATA_FINAL.exists():
-        print(f"[package_datasets] ERROR: {DATA_FINAL} not found.")
-        print("Run the data pipeline (Phase 2/3) to produce data/final/test.jsonl first.")
-        sys.exit(1)
+def _normalize_expected(expected: Any) -> Any:
+    """Normalize a gold label to int where possible (noul bools -> 0/1)."""
+    if isinstance(expected, bool):
+        return int(expected)
+    if isinstance(expected, str):
+        low = expected.lower()
+        if low == "true":
+            return 1
+        if low == "false":
+            return 0
+        try:
+            return int(expected)
+        except ValueError:
+            return expected
+    return expected
 
-    DATASETS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # buckets: dataset_name -> list of item dicts
-    buckets: dict[str, list[dict]] = defaultdict(list)
+def _item_for_question(
+    ex: Mapping[str, Any], source: str, lang: str, row_idx: int, q_idx: int
+) -> tuple[str, dict[str, Any]] | None:
+    """Build one packaged item from a raw question, or None to skip it."""
+    q = ex["questions"][q_idx]
+    q_type = q.get("type")
+    if q_type not in ("choice", "score", "noul"):
+        return None
+    family = _family_for(source, q.get("task") or q.get("qid") or "")
+    dataset_name = _dataset_name_for(source, family)
+    license_str = _LICENSE[source]
+    question_out: dict[str, Any] = {
+        "type": q_type,
+        "instructions": q.get("instructions", ""),
+        "criteria": {},
+    }
+    if q_type in ("choice", "score") and q.get("options"):
+        question_out["options"] = q["options"]
+    expected = q.get("label")
+    if expected is None:
+        expected = q.get("answer")
+    item = {
+        "id": _make_id(source, lang, row_idx, q_idx),
+        "family": family,
+        "lang": lang,
+        "state": ex.get("state", ""),
+        "question": question_out,
+        "expected": _normalize_expected(expected),
+        "split": "v1",
+        "source": source,
+        "license": license_str,
+        "provenance": {
+            "origin": source,
+            "license": license_str,
+            "notes": _PROVENANCE_NOTES.get(source, ""),
+        },
+    }
+    return dataset_name, item
 
-    row_idx = 0
+
+def package(data_final: Path, datasets_dir: Path, manifest_path: Path) -> dict[str, Any]:
+    """Explode ``data_final`` into per-family JSONL files plus a manifest.
+
+    Args:
+        data_final: Raw pipeline JSONL (one row per state, with questions).
+        datasets_dir: Output directory for ``<name>.jsonl`` files (created).
+        manifest_path: Output path for ``manifest.json``.
+
+    Returns:
+        The written manifest mapping.
+
+    Raises:
+        FileNotFoundError: If ``data_final`` does not exist.
+        ValueError: If no items were produced.
+    """
+    if not data_final.exists():
+        raise FileNotFoundError(
+            f"{data_final} not found. Run the upstream data pipeline to produce it first."
+        )
+    datasets_dir.mkdir(parents=True, exist_ok=True)
+
+    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
     skipped = 0
-    with open(DATA_FINAL, encoding="utf-8") as f:
+    row_idx = 0
+    with open(data_final, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -109,111 +184,73 @@ def main() -> None:
             except json.JSONDecodeError:
                 skipped += 1
                 continue
-
             source = ex.get("source", "unknown")
-            # Only include sources permitted for redistribution in v1
-            if source not in _LICENSE:
+            if source not in _PROVENANCE_NOTES:  # not permitted for redistribution
                 skipped += 1
                 continue
             lang = ex.get("lang", "unknown")
-            state = ex.get("state", "")
-            license_str = _LICENSE[source]
-            prov_notes = _PROVENANCE_NOTES.get(source, "")
-
-            questions = ex.get("questions", [])
-            for q_idx, q in enumerate(questions):
-                q_type = q.get("type")
-                if q_type not in ("choice", "score", "noul"):
-                    continue
-
-                task_field = q.get("task") or q.get("qid") or ""
-                family = _family_for(source, task_field)
-                dataset_name = _dataset_name_for(source, family)
-
-                item_id = _make_id(source, lang, row_idx, q_idx)
-
-                # Build question dict in IndicJevBench format
-                question_out: dict = {
-                    "type": q_type,
-                    "instructions": q.get("instructions", ""),
-                    "criteria": {},
-                }
-                if q_type in ("choice", "score") and q.get("options"):
-                    question_out["options"] = q["options"]
-
-                expected = q.get("label")
-                if expected is None:
-                    expected = q.get("answer")
-                # Normalize to int: noul booleans (true/false) -> 1/0
-                if isinstance(expected, bool):
-                    expected = int(expected)
-                elif isinstance(expected, str):
-                    low = expected.lower()
-                    if low == "true":
-                        expected = 1
-                    elif low == "false":
-                        expected = 0
-                    else:
-                        try:
-                            expected = int(expected)
-                        except ValueError:
-                            pass
-
-                item = {
-                    "id": item_id,
-                    "family": family,
-                    "lang": lang,
-                    "state": state,
-                    "question": question_out,
-                    "expected": expected,
-                    "split": "v1",
-                    "source": source,
-                    "license": license_str,
-                    "provenance": {
-                        "origin": source,
-                        "license": license_str,
-                        "notes": prov_notes,
-                    },
-                }
-                buckets[dataset_name].append(item)
-
+            for q_idx in range(len(ex.get("questions", []))):
+                out = _item_for_question(ex, source, lang, row_idx, q_idx)
+                if out is not None:
+                    buckets[out[0]].append(out[1])
             row_idx += 1
 
     if not buckets:
-        print("[package_datasets] No items produced. Check data/final/test.jsonl format.")
-        sys.exit(1)
+        raise ValueError("No items produced. Check data/final/test.jsonl format.")
 
-    manifest_splits: dict[str, dict] = {}
+    splits: dict[str, dict[str, Any]] = {}
     for dataset_name, items in sorted(buckets.items()):
-        out_path = DATASETS_DIR / f"{dataset_name}.jsonl"
+        out_path = datasets_dir / f"{dataset_name}.jsonl"
         with open(out_path, "w", encoding="utf-8") as f:
-            for item in items:
-                f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        print(f"[package_datasets] {dataset_name}: {len(items)} items -> {out_path.name}")
-
-        langs = sorted(set(i["lang"] for i in items))
-        families = sorted(set(i["family"] for i in items))
-        licenses = sorted(set(i["license"] for i in items))
-        manifest_splits[dataset_name] = {
+            f.writelines(json.dumps(item, ensure_ascii=False) + "\n" for item in items)
+        logger.info("%s: %d items -> %s", dataset_name, len(items), out_path.name)
+        splits[dataset_name] = {
             "n_items": len(items),
-            "langs": langs,
-            "families": families,
-            "licenses": licenses,
+            "langs": sorted({i["lang"] for i in items}),
+            "families": sorted({i["family"] for i in items}),
+            "licenses": sorted({i["license"] for i in items}),
             "file": f"v1/{dataset_name}.jsonl",
         }
 
-    manifest = {
+    manifest: dict[str, Any] = {
         "schema_version": 1,
-        "splits": manifest_splits,
+        "splits": splits,
         "description": "IndicJevBench v1 — packaged from data/final/test.jsonl",
-        "frozen_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "frozen_date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "total_items": sum(len(v) for v in buckets.values()),
         "skipped_rows": skipped,
     }
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\n[package_datasets] manifest.json written: {manifest['total_items']} total items")
-    print(f"[package_datasets] Skipped rows: {skipped}")
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info("manifest written: %d total items, %d skipped rows",
+                manifest["total_items"], skipped)
+    return manifest
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Script entrypoint.
+
+    Args:
+        argv: Optional argument list.
+
+    Returns:
+        Process exit code (1 on packaging failure).
+    """
+    configure_logging()
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+    parser.add_argument("--data-final", type=Path, default=DATA_FINAL,
+                        help="raw pipeline JSONL input")
+    parser.add_argument("--datasets-dir", type=Path, default=DATASETS_DIR,
+                        help="output directory for v1 JSONL files")
+    parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH,
+                        help="output manifest path")
+    args = parser.parse_args(argv)
+    try:
+        package(args.data_final, args.datasets_dir, args.manifest)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.error("packaging failed: %s", exc)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
