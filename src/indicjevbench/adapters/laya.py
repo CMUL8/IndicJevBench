@@ -46,7 +46,7 @@ class LayaAdapter(BenchAdapter):
         model_id: str = "convaiinnovations/laya-multilingual",
         published_numbers_path: str | None = None,
         device: str = "cuda",
-        local_files_only: bool = True,
+        local_files_only: bool = False,
     ) -> None:
         """Load the Laya classifier, or switch to published-numbers mode.
 

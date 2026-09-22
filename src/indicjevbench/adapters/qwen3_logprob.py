@@ -55,7 +55,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
         self,
         model_id: str = "Qwen/Qwen3-4B-Instruct",
         device: str = "cuda",
-        local_files_only: bool = True,
+        local_files_only: bool = False,
     ) -> None:
         try:
             import torch
