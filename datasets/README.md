@@ -107,20 +107,24 @@ The score is the geometric mean of all four axes.
 
 Measured by cmul8 on 2026-09-22 using 1000 items per dataset (where available).
 
-| Model | fintech_banking77 acc | fintech_banking77 IJScore | synthetic_enterprise acc | synthetic_enterprise IJScore | intent_massive | hinglish_lid |
-|-------|----------------------|--------------------------|-------------------------|------------------------------|----------------|--------------|
-| OpenJev (Qwen3.5-4B) | 0.620 | 78.3 | 0.606 | 79.6 | N/A (exceeds 16-option limit) | 0.998 / 87.2 |
+| Model | Type | fintech_banking77 | synthetic_enterprise | intent_massive | hinglish_lid |
+|-------|------|-------------------|----------------------|----------------|--------------|
+| OpenJev (Qwen3.5-4B) | local | acc=0.620 / IJScore=78.3 | acc=0.606 / IJScore=79.6 | N/A (>16-option limit) | acc=0.998 / IJScore=87.2 |
+| Qwen3-4B (zero-shot logprob) | local | acc=0.373 / IJScore=55.3 | acc=0.525 / IJScore=68.5 | acc=0.316 / IJScore=49.6 | acc=0.840 / IJScore=2.3† |
+| GPT-4o-mini (OpenRouter) | API | acc=0.775 / IJScore=56.1 | acc=0.670 / IJScore=46.6 | acc=0.580 / IJScore=51.3 | acc=0.175 / IJScore=21.2‡ |
+
+† Qwen3-4B logprob scoring runs one forward pass per option. hinglish_lid has many language classes, pushing latency to ~16s/item and collapsing the speed axis.
+‡ GPT-4o-mini hinglish_lid had 46/200 JSON parse errors (pre-fix run); accuracy and IJScore are underestimates.
 
 Notes:
-- OpenJev has a hard limit of 16 options. intent_massive has up to 60 options and cannot be evaluated.
-- hinglish_lid accuracy is near-perfect for all language models as language identification is trivial. Not a useful differentiator.
-- The meaningful comparison tasks are fintech_banking77 and synthetic_enterprise.
+- OpenJev has a hard limit of 16 options; intent_massive (up to 60 options) cannot be evaluated with OpenJev.
+- The primary comparison tasks are fintech_banking77, intent_massive, and synthetic_enterprise.
 
 ---
 
 ## Running the Benchmark
 
-The benchmark harness and full code are coming soon. Watch this space.
+The benchmark harness is available at [CMUL8/IndicJevBench](https://github.com/CMUL8/IndicJevBench). See the README there for installation and usage.
 
 ---
 
