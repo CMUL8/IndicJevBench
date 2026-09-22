@@ -3,13 +3,13 @@
 ## Task Dataclass
 
 ```python
-@dataclass
+@dataclass(frozen=True)
 class Task:
     id: str          # unique item ID, e.g. "massive-hi-Deva-0001-q0"
     family: str      # task family: "intent" | "urgency" | "escalation" | "routing" | "lid"
     lang: str        # ISO 639-1 + script, e.g. "hi-Deva", "hi-Latn", "bn-Beng"
     state: str       # customer message / input text
-    question: dict   # {"type": ..., "instructions": ..., "options": [...], "criteria": {}}
+    question: Question  # frozen dataclass: type/instructions/options/criteria
     expected: Any    # ground-truth label: int (choice/score) or bool (noul)
     split: str       # "v1"
     source: str      # "massive" | "banking77" | "comilingua" | "synthetic"
@@ -17,9 +17,13 @@ class Task:
     provenance: dict # {"origin": ..., "license": ..., "notes": ...}
 ```
 
+The nested `Question` is itself a frozen dataclass:
+`type` (`"choice"` | `"score"` | `"noul"`), `instructions`,
+`options: tuple[str, ...] | None` (`None` for noul), and `criteria`.
+
 Properties:
-- `task.q_type` → `task.question["type"]`  (`"choice"` | `"score"` | `"noul"`)
-- `task.options` → `task.question.get("options")`
+- `task.q_type` → `task.question.type`  (`"choice"` | `"score"` | `"noul"`)
+- `task.options` → `task.question.options`
 
 ## DecisionResult Schema
 
@@ -113,19 +117,19 @@ Highest confidence threshold T such that items with confidence > T have error ra
 
 ## How to Add an Adapter
 
-1. Create `indicjevbench/adapters/my_adapter.py`.
+1. Create `src/indicjevbench/adapters/my_adapter.py`.
 2. Import `BenchAdapter` and `DecisionResult` from `.base`.
-3. Implement `decide(self, task) -> DecisionResult`.
-4. Add a branch in `indicjevbench/cli.py` under `_make_adapter()`.
-5. Add tests in `tests/` if the adapter has non-trivial parsing logic.
+3. Implement `decide(self, task: Task) -> DecisionResult`.
+4. Add a branch in `src/indicjevbench/runner/cli.py` under `build_adapter()`.
+5. Add tests in `tests/adapters/` if the adapter has non-trivial parsing logic.
 
 ## Data Flow
 
 ```
 data/final/test.jsonl
     → scripts/package_datasets.py
-    → datasets/v1/<task_name>.jsonl   (IndicJevBench JSONL format)
-    → indicjevbench.tasks.load_tasks()
-    → indicjevbench.runner.run(tasks, adapter)
-    → results/v1/<run_id>.json
+    → datasets/v1/<task_name>.jsonl      (IndicJevBench JSONL format, frozen)
+    → indicjevbench.load_tasks()         (or core.dataset.load_tasks)
+    → BenchmarkRunner(adapter, raw_log_path=...).run(tasks)
+    → results/v1/<run_id>.json + results/v1/<run_id>_<task>_raw.jsonl
 ```
