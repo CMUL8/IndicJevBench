@@ -6,19 +6,20 @@ trained model so the comparison is fair (same prompt, no fine-tuning).
 Usage:
     from indicjevbench.adapters.qwen3_logprob import Qwen3LogprobAdapter
     adapter = Qwen3LogprobAdapter(device="cuda")
+
+Requires the ``baselines`` extra (torch, transformers):
+``pip install 'indicjevbench[baselines]'``.
 """
 
-from __future__ import annotations
-
+import logging
 import math
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from indicjevbench.adapters.base import BenchAdapter, DecisionResult
-from indicjevbench.schemas.contracts import Question, Task
+from indicjevbench.adapters.base import BenchAdapter
+from indicjevbench.schemas.contracts import DecisionResult, Question, Task
 
-if TYPE_CHECKING:
-    import torch  # noqa: F401
+logger = logging.getLogger(__name__)
 
 # Mirrors format.py template markers
 _TEMPLATE = "[STATE]\n{state}\n[QUESTION]\n{instructions}\n[OPTIONS]\n{options}[ANSWER]"
@@ -33,6 +34,15 @@ class Qwen3LogprobAdapter(BenchAdapter):
     caches the shared prefix.
 
     For noul: score 'Yes' vs 'No' tokens directly.
+
+    Args:
+        model_id: Hugging Face model id of a Qwen3-Instruct checkpoint.
+        device: Device map for model loading (e.g. ``"cuda"``, ``"cpu"``).
+        local_files_only: Only use locally cached weights (no download).
+
+    Raises:
+        ImportError: If torch/transformers are missing; install with
+            ``pip install 'indicjevbench[baselines]'``.
     """
 
     def __init__(
@@ -40,14 +50,19 @@ class Qwen3LogprobAdapter(BenchAdapter):
         model_id: str = "Qwen/Qwen3-4B-Instruct",
         device: str = "cuda",
         local_files_only: bool = True,
-    ):
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+    ) -> None:
+        try:
+            import torch
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError as exc:
+            raise ImportError(
+                "Qwen3LogprobAdapter requires torch and transformers. "
+                "Install them with: pip install 'indicjevbench[baselines]'"
+            ) from exc
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id, local_files_only=local_files_only
         )
-        import torch
-
         self._torch = torch
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
@@ -57,8 +72,18 @@ class Qwen3LogprobAdapter(BenchAdapter):
         )
         self.model.eval()
         self.device = device
+        logger.info("Qwen3LogprobAdapter loaded model=%s device=%s", model_id, device)
 
     def _build_prefix(self, state: str, question: Question) -> str:
+        """Build the shared prompt prefix up to the [ANSWER] marker.
+
+        Args:
+            state: Raw customer/user message.
+            question: The typed question.
+
+        Returns:
+            The prompt prefix (noul questions use the no-options template).
+        """
         options = question.options or []
         if question.type == "noul":
             return _TEMPLATE_NOUL.format(
@@ -73,13 +98,41 @@ class Qwen3LogprobAdapter(BenchAdapter):
         )
 
     def _score_continuations(self, prefix: str, continuations: list[str]) -> list[float]:
-        """Return log-prob of each continuation given the prefix."""
+        """Return the log-prob of each continuation given the prefix.
+
+        Args:
+            prefix: Shared prompt prefix.
+            continuations: Candidate continuation strings to score.
+
+        Returns:
+            Per-continuation summed token log-probabilities.
+        """
         torch = self._torch
         enc = self.tokenizer
         with torch.inference_mode():
             return self._score_continuations_inner(torch, enc, prefix, continuations)
 
-    def _score_continuations_inner(self, torch: Any, enc: Any, prefix: str, continuations: list[str]) -> list[float]:
+    def _score_continuations_inner(
+        self,
+        torch: Any,
+        enc: Any,
+        prefix: str,
+        continuations: list[str],
+    ) -> list[float]:
+        """Token-level scoring of each continuation after a shared prefix.
+
+        Args:
+            torch: The torch module (injected for inference-mode scoping).
+            enc: The tokenizer.
+            prefix: Shared prompt prefix.
+            continuations: Candidate continuation strings.
+
+        Returns:
+            Per-continuation summed token log-probabilities. Each
+            continuation is scored by summing, over its tokens, the
+            log-softmax probability assigned to that token at the
+            corresponding position of a single forward pass.
+        """
         prefix_ids = enc.encode(prefix, add_special_tokens=True, return_tensors="pt").to(self.device)
 
         log_probs = []
@@ -98,12 +151,32 @@ class Qwen3LogprobAdapter(BenchAdapter):
         return log_probs
 
     def _softmax(self, log_probs: list[float]) -> list[float]:
+        """Numerically stable softmax over a list of log-probabilities.
+
+        Args:
+            log_probs: Candidate log-probabilities.
+
+        Returns:
+            The normalised probability distribution.
+        """
         max_lp = max(log_probs)
         exp = [math.exp(lp - max_lp) for lp in log_probs]
         total = sum(exp)
         return [e / total for e in exp]
 
     def decide(self, task: Task) -> DecisionResult:
+        """Score the question's options with token log-probs.
+
+        Args:
+            task: The benchmark task (state + typed question).
+
+        Returns:
+            For ``noul``: probabilities ``[P(false), P(true)]`` and a bool
+            answer (``P(true) > 0.5``). For ``choice``/``score``: a softmax
+            over option log-probs, the argmax index as answer, confidence
+            ``(p_max - 1/K) / (1 - 1/K)``, and — for ``score`` — the
+            expected level ``sum((i + 1) * p_i)``.
+        """
         q = task.question
         prefix = self._build_prefix(task.state, q)
         t0 = time.perf_counter()
@@ -128,7 +201,7 @@ class Qwen3LogprobAdapter(BenchAdapter):
             probs = self._softmax(log_probs)
             argmax = int(max(range(len(probs)), key=lambda i: probs[i]))
             k = len(probs)
-            conf = (probs[argmax] - 1/k) / (1 - 1/k) if k > 1 else 1.0
+            conf = (probs[argmax] - 1 / k) / (1 - 1 / k) if k > 1 else 1.0
             expected = None
             if q.type == "score":
                 expected = sum((i + 1) * p for i, p in enumerate(probs))
