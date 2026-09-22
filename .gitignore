@@ -1,0 +1,10 @@
+results/v1/*.json
+results/v1/*.jsonl
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+*.egg
+build/
+dist/
+.DS_Store
